@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editors
+.vscode/
+.idea/
+
+# Ultralytics / YOLO outputs
+runs/
+wandb/
+
+# Weights / exported models (keep out of git by default)
+*.pt
+*.onnx
+*.engine
+*.tflite
+*.torchscript
+
+# Local demo artifacts
+yolo/annotated.png
+yolo/result.json
+
