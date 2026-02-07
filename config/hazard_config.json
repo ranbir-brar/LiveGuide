@@ -143,6 +143,114 @@
       "medium": 0.3
     }
   },
+  "auto_classification": {
+    "enabled": true,
+    "walking": {
+      "high_keywords": [
+        "car",
+        "truck",
+        "bus",
+        "train",
+        "motorcycle",
+        "bicycle",
+        "vehicle",
+        "van",
+        "taxi",
+        "ambulance",
+        "airplane",
+        "aircraft",
+        "helicopter",
+        "boat",
+        "watercraft"
+      ],
+      "medium_keywords": [
+        "animal",
+        "dog",
+        "cat",
+        "bird",
+        "deer",
+        "horse",
+        "cattle",
+        "goat",
+        "sheep",
+        "bear",
+        "zebra",
+        "giraffe",
+        "elephant",
+        "skateboard",
+        "scooter",
+        "snowboard",
+        "surfboard",
+        "ski",
+        "ball",
+        "kite",
+        "bat",
+        "racket"
+      ],
+      "low_keywords": [
+        "person",
+        "man",
+        "woman",
+        "boy",
+        "girl",
+        "bench",
+        "chair",
+        "table",
+        "traffic light",
+        "stop sign",
+        "parking meter"
+      ]
+    },
+    "driving": {
+      "high_keywords": [
+        "person",
+        "man",
+        "woman",
+        "boy",
+        "girl",
+        "bicycle",
+        "motorcycle",
+        "scooter",
+        "dog",
+        "cat",
+        "animal",
+        "deer",
+        "horse",
+        "cattle",
+        "goat",
+        "sheep",
+        "bear",
+        "zebra",
+        "elephant"
+      ],
+      "medium_keywords": [
+        "car",
+        "truck",
+        "bus",
+        "train",
+        "vehicle",
+        "van",
+        "taxi",
+        "ambulance",
+        "traffic light",
+        "stop sign",
+        "traffic sign",
+        "street light",
+        "parking meter"
+      ],
+      "low_keywords": [
+        "skateboard",
+        "ball",
+        "frisbee",
+        "kite",
+        "umbrella",
+        "backpack",
+        "suitcase",
+        "bench",
+        "plant"
+      ]
+    }
+  },
   "filters": {
     "confidence_threshold": 0.5,
     "min_box_height": 40

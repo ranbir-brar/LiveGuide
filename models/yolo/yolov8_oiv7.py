@@ -1,6 +1,7 @@
 import base64
 import os
 import threading
+import time
 import urllib.request
 from io import BytesIO
 from pathlib import Path
@@ -11,8 +12,9 @@ from PIL import Image
 from ultralytics import YOLO
 
 MODULE_DIR = Path(__file__).resolve().parent  # .../models/yolo
-DEFAULT_WEIGHTS = MODULE_DIR / "weights" / "yolov8n.pt"
-DEFAULT_WEIGHTS_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.pt"
+# OpenImages V7 model (601 classes) gives much broader label coverage than COCO 80.
+DEFAULT_WEIGHTS = MODULE_DIR / "weights" / "yolov8n-oiv7.pt"
+DEFAULT_WEIGHTS_URL = "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-oiv7.pt"
 
 _MODEL_CACHE: dict[str, YOLO] = {}
 _MODEL_CACHE_LOCK = threading.Lock()
@@ -26,7 +28,7 @@ class APIError(Exception):
 def _download_file(url: str, dst: Path, *, timeout: float = 60.0) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     tmp = dst.with_suffix(dst.suffix + ".tmp")
-    req = urllib.request.Request(url, headers={"User-Agent": "YOLOv11n-local/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "YOLOv8n-OIV7-local/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
             if getattr(resp, "status", 200) != 200:
@@ -55,7 +57,7 @@ def _resolve_weights_path(weights_path: str | None) -> Path:
     else:
         rel = Path(raw)
         if rel.is_absolute():
-            raise APIError("Please provide a relative weights path (relative to `models/yolo/`), e.g. `weights/yolo11n.pt`.")
+            raise APIError("Please provide a relative weights path (relative to `models/yolo/`), e.g. `weights/yolov8n-oiv7.pt`.")
         if any(part == ".." for part in rel.parts):
             raise APIError("Invalid weights path.")
         p = (MODULE_DIR / rel).resolve()
@@ -73,7 +75,7 @@ def _resolve_weights_path(weights_path: str | None) -> Path:
                         raise APIError(f"Failed to auto-download default weights: {e}") from e
         if not p.exists():
             raise APIError(
-                "Weights file not found. Please put `yolo11n.pt` under `models/yolo/weights/`, "
+                "Weights file not found. Please put `yolov8n-oiv7.pt` under `models/yolo/weights/`, "
                 "or provide `weights_path` relative to `models/yolo/`."
             )
     return p
@@ -98,6 +100,7 @@ def detect_pil(
     iou: float = 0.7,
     imgsz: int = 640,
     device: str = "auto",
+    use_depth: bool = False,
     return_image: bool = False,
 ) -> dict[str, Any]:
     if image is None:
@@ -141,7 +144,23 @@ def detect_pil(
 
     detections.sort(key=lambda d: d["confidence"], reverse=True)
 
+    depth_ms = 0.0
+    if use_depth and detections:
+        try:
+            from models.depth import enrich_detections_with_depth, estimate_depth
+
+            depth_start = time.perf_counter()
+            buf = BytesIO()
+            pil.save(buf, format="JPEG", quality=90)
+            depth_map = estimate_depth(buf.getvalue())
+            detections = enrich_detections_with_depth(detections, depth_map)
+            depth_ms = (time.perf_counter() - depth_start) * 1000
+        except Exception as e:  # noqa: BLE001
+            raise APIError(f"Depth estimation failed: {e}") from e
+
     out: dict[str, Any] = {"detections": detections}
+    if use_depth:
+        out["depth_ms"] = round(depth_ms, 1)
     if return_image:
         plotted_bgr = r0.plot()  # np.ndarray, BGR
         plotted_rgb = plotted_bgr[:, :, ::-1]
@@ -160,6 +179,7 @@ def detect_image_bytes(
     iou: float = 0.7,
     imgsz: int = 640,
     device: str = "auto",
+    use_depth: bool = False,
     return_image: bool = False,
 ) -> dict[str, Any]:
     if not image_bytes:
@@ -175,5 +195,6 @@ def detect_image_bytes(
         iou=iou,
         imgsz=imgsz,
         device=device,
+        use_depth=use_depth,
         return_image=return_image,
     )

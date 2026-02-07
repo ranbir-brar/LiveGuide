@@ -1,49 +1,6 @@
 [
   {
-    "detections": [
-      {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.42619359493255615,
-        "xyxy": [
-          176.29486083984375,
-          85.85494995117188,
-          206.35235595703125,
-          98.16178894042969
-        ],
-        "depth": 0.078,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      },
-      {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.27811795473098755,
-        "xyxy": [
-          210.46408081054688,
-          80.09599304199219,
-          255.87200927734375,
-          102.43391418457031
-        ],
-        "depth": 0.086,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      },
-      {
-        "class_id": 7,
-        "class_name": "truck",
-        "confidence": 0.2583259642124176,
-        "xyxy": [
-          210.05416870117188,
-          57.744415283203125,
-          255.82650756835938,
-          103.85151672363281
-        ],
-        "depth": 0.075,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      }
-    ],
+    "detections": [],
     "hazard": {
       "hazard_score": 0.0,
       "hazard_level": "clear",
@@ -52,250 +9,82 @@
       "medium_hazards": [],
       "low_hazards": [],
       "total_hazards": 0,
-      "ignored_distant": 0
+      "ignored_distant": 0,
+      "auto_classified": 0
+    },
+    "llm": {
+      "sent": true,
+      "probability": 0.1,
+      "sampled": true,
+      "rate_allowed": true,
+      "description": null,
+      "error": "The checkpoint you are trying to load has model type `qwen3_vl` but Transformers does not recognize this architecture. This could be because of an issue with the checkpoint, or because your version of Transformers is out of date."
     },
     "latency": {
-      "preprocess_ms": 86.0,
-      "yolo_ms": 558.5,
-      "depth_ms": 1605.3,
-      "hazard_ms": 0.2,
-      "total_ms": 2251.4
-    },
-    "source_image": "another-sidewalk-obstruction-where-is-the-bylaw-enforcement-v0-6by1umfdiw4e1.png"
-  },
-  {
-    "detections": [
-      {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.8865171074867249,
-        "xyxy": [
-          37.10496520996094,
-          65.91525268554688,
-          177.46310424804688,
-          145.48634338378906
-        ],
-        "depth": 0.324,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      },
-      {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.5893099308013916,
-        "xyxy": [
-          0.9228096008300781,
-          55.667381286621094,
-          33.18571853637695,
-          77.80606842041016
-        ],
-        "depth": 0.021,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      },
-      {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.578743040561676,
-        "xyxy": [
-          56.61058807373047,
-          59.3951416015625,
-          74.2254409790039,
-          75.07723999023438
-        ],
-        "depth": 0.025,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      },
-      {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.34189292788505554,
-        "xyxy": [
-          0.05560016632080078,
-          57.791778564453125,
-          9.734893798828125,
-          77.7220458984375
-        ],
-        "depth": 0.019,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      },
-      {
-        "class_id": 7,
-        "class_name": "truck",
-        "confidence": 0.2731561064720154,
-        "xyxy": [
-          31.021263122558594,
-          54.26490783691406,
-          73.49459075927734,
-          76.1751708984375
-        ],
-        "depth": 0.021,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      }
-    ],
-    "hazard": {
-      "hazard_score": 1.0,
-      "hazard_level": "critical",
-      "context": "walking",
-      "high_hazards": [
-        {
-          "object": "car",
-          "confidence": 0.89,
-          "box_height": 79,
-          "relative_distance": 0.0,
-          "distance_category": "immediate"
-        }
-      ],
-      "medium_hazards": [],
-      "low_hazards": [],
-      "total_hazards": 1,
-      "ignored_distant": 2
-    },
-    "latency": {
-      "preprocess_ms": 3.6,
-      "yolo_ms": 16.6,
-      "depth_ms": 14.5,
-      "hazard_ms": 0.0,
-      "total_ms": 34.7
-    },
-    "source_image": "suzhou-jiangsu-china-july-21-260nw-1057869248.png"
-  },
-  {
-    "detections": [
-      {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.8227409720420837,
-        "xyxy": [
-          14.937488555908203,
-          6.920330047607422,
-          52.41421127319336,
-          35.32789611816406
-        ],
-        "depth": 0.02,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      },
-      {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.646172046661377,
-        "xyxy": [
-          227.18798828125,
-          16.006908416748047,
-          255.64892578125,
-          30.352252960205078
-        ],
-        "depth": 0.061,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      }
-    ],
-    "hazard": {
-      "hazard_score": 0.0,
-      "hazard_level": "clear",
-      "context": "walking",
-      "high_hazards": [],
-      "medium_hazards": [],
-      "low_hazards": [],
-      "total_hazards": 0,
-      "ignored_distant": 2
-    },
-    "latency": {
-      "preprocess_ms": 3.4,
-      "yolo_ms": 17.0,
-      "depth_ms": 13.4,
-      "hazard_ms": 0.0,
-      "total_ms": 33.8
+      "preprocess_ms": 13.0,
+      "yolo_ms": 68.7,
+      "depth_ms": 0.0,
+      "hazard_ms": 0.5,
+      "total_ms": 276.2
     },
     "source_image": "SWobs19-poster.png"
   },
   {
     "detections": [
       {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.6879246830940247,
+        "class_id": 90,
+        "class_name": "Car",
+        "confidence": 0.3448835611343384,
         "xyxy": [
-          4.953708648681641,
-          70.20600891113281,
-          42.65749740600586,
-          103.04119873046875
+          227.75225830078125,
+          51.86077880859375,
+          255.92770385742188,
+          135.0343017578125
         ],
-        "depth": 0.087,
+        "depth": 0.193,
         "relative_distance": 0.0,
         "distance_category": "immediate"
       },
       {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.5149369835853577,
+        "class_id": 195,
+        "class_name": "Flower",
+        "confidence": 0.3045118451118469,
         "xyxy": [
-          229.87725830078125,
-          55.192138671875,
-          255.85165405273438,
-          128.8622283935547
+          76.40066528320312,
+          72.51414489746094,
+          209.876220703125,
+          187.7798309326172
         ],
-        "depth": 0.207,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      },
-      {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.40224674344062805,
-        "xyxy": [
-          52.516754150390625,
-          69.96415710449219,
-          75.3790054321289,
-          85.36485290527344
-        ],
-        "depth": 0.049,
-        "relative_distance": 0.0,
-        "distance_category": "immediate"
-      },
-      {
-        "class_id": 2,
-        "class_name": "car",
-        "confidence": 0.28547173738479614,
-        "xyxy": [
-          53.35769271850586,
-          61.53269577026367,
-          84.2071533203125,
-          84.22309875488281
-        ],
-        "depth": 0.044,
-        "relative_distance": 0.0,
+        "depth": 0.711,
+        "relative_distance": 0.219,
         "distance_category": "immediate"
       }
     ],
     "hazard": {
-      "hazard_score": 0.59,
-      "hazard_level": "high",
+      "hazard_score": 0.0,
+      "hazard_level": "clear",
       "context": "walking",
-      "high_hazards": [
-        {
-          "object": "car",
-          "confidence": 0.51,
-          "box_height": 73,
-          "relative_distance": 0.0,
-          "distance_category": "immediate"
-        }
-      ],
+      "high_hazards": [],
       "medium_hazards": [],
       "low_hazards": [],
-      "total_hazards": 1,
-      "ignored_distant": 1
+      "total_hazards": 0,
+      "ignored_distant": 0,
+      "auto_classified": 0
+    },
+    "llm": {
+      "sent": false,
+      "probability": 0.1,
+      "sampled": false,
+      "rate_allowed": false,
+      "description": null,
+      "error": null
     },
     "latency": {
-      "preprocess_ms": 3.4,
-      "yolo_ms": 16.4,
-      "depth_ms": 13.4,
+      "preprocess_ms": 4.7,
+      "yolo_ms": 1398.8,
+      "depth_ms": 1368.0,
       "hazard_ms": 0.0,
-      "total_ms": 33.3
+      "total_ms": 1403.7
     },
     "source_image": "SWobs24-poster2.png"
   },
@@ -309,14 +98,163 @@
       "medium_hazards": [],
       "low_hazards": [],
       "total_hazards": 0,
-      "ignored_distant": 0
+      "ignored_distant": 0,
+      "auto_classified": 0
+    },
+    "llm": {
+      "sent": false,
+      "probability": 0.1,
+      "sampled": false,
+      "rate_allowed": false,
+      "description": null,
+      "error": null
     },
     "latency": {
-      "preprocess_ms": 2.0,
-      "yolo_ms": 14.2,
+      "preprocess_ms": 19.8,
+      "yolo_ms": 33.3,
       "depth_ms": 0.0,
       "hazard_ms": 0.0,
-      "total_ms": 16.2
+      "total_ms": 53.2
+    },
+    "source_image": "another-sidewalk-obstruction-where-is-the-bylaw-enforcement-v0-6by1umfdiw4e1.png"
+  },
+  {
+    "detections": [
+      {
+        "class_id": 90,
+        "class_name": "Car",
+        "confidence": 0.6999430060386658,
+        "xyxy": [
+          35.57023620605469,
+          62.26869201660156,
+          177.9988555908203,
+          145.56683349609375
+        ],
+        "depth": 0.329,
+        "relative_distance": 0.0,
+        "distance_category": "immediate"
+      },
+      {
+        "class_id": 90,
+        "class_name": "Car",
+        "confidence": 0.3710201382637024,
+        "xyxy": [
+          0.01446533203125,
+          53.847320556640625,
+          32.15731430053711,
+          77.21060180664062
+        ],
+        "depth": 0.02,
+        "relative_distance": 0.0,
+        "distance_category": "immediate"
+      },
+      {
+        "class_id": 582,
+        "class_name": "Wheel",
+        "confidence": 0.302538126707077,
+        "xyxy": [
+          135.5380859375,
+          106.90397644042969,
+          158.89913940429688,
+          137.93243408203125
+        ],
+        "depth": 0.357,
+        "relative_distance": 0.0,
+        "distance_category": "immediate"
+      },
+      {
+        "class_id": 582,
+        "class_name": "Wheel",
+        "confidence": 0.26460981369018555,
+        "xyxy": [
+          52.238731384277344,
+          115.93867492675781,
+          76.07929229736328,
+          147.7600860595703
+        ],
+        "depth": 0.353,
+        "relative_distance": 0.0,
+        "distance_category": "immediate"
+      }
+    ],
+    "hazard": {
+      "hazard_score": 0.8,
+      "hazard_level": "critical",
+      "context": "walking",
+      "high_hazards": [
+        {
+          "object": "car",
+          "confidence": 0.7,
+          "box_height": 83,
+          "relative_distance": 0.0,
+          "distance_category": "immediate"
+        }
+      ],
+      "medium_hazards": [],
+      "low_hazards": [],
+      "total_hazards": 1,
+      "ignored_distant": 0,
+      "auto_classified": 0
+    },
+    "llm": {
+      "sent": false,
+      "probability": 0.676,
+      "sampled": false,
+      "rate_allowed": false,
+      "description": null,
+      "error": null
+    },
+    "latency": {
+      "preprocess_ms": 5.0,
+      "yolo_ms": 159.1,
+      "depth_ms": 129.7,
+      "hazard_ms": 0.0,
+      "total_ms": 164.3
+    },
+    "source_image": "suzhou-jiangsu-china-july-21-260nw-1057869248.png"
+  },
+  {
+    "detections": [
+      {
+        "class_id": 553,
+        "class_name": "Tree",
+        "confidence": 0.3486810624599457,
+        "xyxy": [
+          0.0,
+          0.0,
+          96.09435272216797,
+          254.952880859375
+        ],
+        "depth": 0.54,
+        "relative_distance": 0.134,
+        "distance_category": "immediate"
+      }
+    ],
+    "hazard": {
+      "hazard_score": 0.0,
+      "hazard_level": "clear",
+      "context": "walking",
+      "high_hazards": [],
+      "medium_hazards": [],
+      "low_hazards": [],
+      "total_hazards": 0,
+      "ignored_distant": 0,
+      "auto_classified": 0
+    },
+    "llm": {
+      "sent": false,
+      "probability": 0.1,
+      "sampled": false,
+      "rate_allowed": false,
+      "description": null,
+      "error": null
+    },
+    "latency": {
+      "preprocess_ms": 2.8,
+      "yolo_ms": 177.5,
+      "depth_ms": 144.7,
+      "hazard_ms": 0.0,
+      "total_ms": 180.5
     },
     "source_image": "swobs7-s.png"
   }

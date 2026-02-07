@@ -30,12 +30,16 @@ wandb/
 
 # Weights / exported models (keep out of git by default)
 *.pt
+*.bin
+*.safetensors
+*.ckpt
+*.pth
 *.onnx
 *.engine
 *.tflite
 *.torchscript
+models/llm/weights/
 
 # Local demo artifacts
 yolo/annotated.png
 yolo/result.json
-

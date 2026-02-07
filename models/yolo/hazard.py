@@ -8,6 +8,7 @@ Configuration is loaded from config/hazard_config.json
 """
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -65,6 +66,27 @@ def get_hazard_classes(context: str) -> dict[str, set]:
     }
 
 
+def _match_keyword(label: str, keyword: str) -> bool:
+    """Match keyword as a word/phrase boundary inside a class label."""
+    return re.search(rf"\b{re.escape(keyword)}\b", label) is not None
+
+
+def _classify_by_keywords(class_name: str, context: str, config: dict[str, Any]) -> str | None:
+    """Fallback classification for larger vocab models (e.g., OpenImages 600 classes)."""
+    auto_cfg = config.get("auto_classification", {})
+    if not auto_cfg.get("enabled", False):
+        return None
+
+    ctx = auto_cfg.get(context, auto_cfg.get("walking", {}))
+    for category in ("high", "medium", "low"):
+        key = f"{category}_keywords"
+        for kw in ctx.get(key, []):
+            kw_norm = str(kw).strip().lower()
+            if kw_norm and _match_keyword(class_name, kw_norm):
+                return category
+    return None
+
+
 def classify_hazard(
     detections: list[dict[str, Any]],
     context: Literal["walking", "driving"] = "walking",
@@ -102,6 +124,7 @@ def classify_hazard(
     medium_hazards = []
     low_hazards = []
     ignored_distant = 0
+    auto_classified = 0
     
     for det in detections:
         class_name = det.get("class_name", "").lower()
@@ -135,6 +158,17 @@ def classify_hazard(
             medium_hazards.append(hazard_info)
         elif class_name in hazard_map.get("low", set()):
             low_hazards.append(hazard_info)
+        else:
+            auto_category = _classify_by_keywords(class_name, context, config)
+            if auto_category == "high":
+                high_hazards.append(hazard_info)
+                auto_classified += 1
+            elif auto_category == "medium":
+                medium_hazards.append(hazard_info)
+                auto_classified += 1
+            elif auto_category == "low":
+                low_hazards.append(hazard_info)
+                auto_classified += 1
     
     # Calculate hazard score (0-1)
     max_score = 0.0
@@ -198,6 +232,7 @@ def classify_hazard(
         "low_hazards": low_hazards,
         "total_hazards": len(high_hazards) + len(medium_hazards) + len(low_hazards),
         "ignored_distant": ignored_distant,
+        "auto_classified": auto_classified,
     }
 
 
@@ -215,6 +250,12 @@ def format_hazard_alert(hazard_result: dict[str, Any]) -> str:
     
     for h in hazard_result["medium_hazards"]:
         alerts.append(f"{h['object']} ({h['confidence']:.0%})")
+
+    if not alerts:
+        for h in hazard_result.get("low_hazards", []):
+            alerts.append(f"{h['object']} ({h['confidence']:.0%})")
+            if len(alerts) >= 3:
+                break
     
     if level == "critical":
         prefix = "WARNING: "

@@ -1,0 +1,18 @@
+{
+  "pipeline": {
+    "yolo_target_fps": 6.0
+  },
+  "llm": {
+    "model_id": "Qwen/Qwen3-VL-2B-Instruct",
+    "local_model_dir": "models/llm/weights/Qwen3-VL-2B-Instruct",
+    "max_new_tokens": 80,
+    "temperature": 0.2,
+    "top_p": 0.9,
+    "calls_per_second_constant": 0.8,
+    "max_calls_per_second": 1.5,
+    "min_interval_ms": 300,
+    "probability_scale": 1.0,
+    "base_probability_bias": 0.1,
+    "rng_seed": 42
+  }
+}
