@@ -1,0 +1,6 @@
+numpy
+Pillow
+ultralytics
+transformers
+torch
+accelerate
