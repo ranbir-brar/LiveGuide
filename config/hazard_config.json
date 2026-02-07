@@ -1,0 +1,46 @@
+{
+  "walking": {
+    "high": ["car", "truck", "bus", "motorcycle", "bicycle", "train"],
+    "medium": ["dog", "horse", "cow", "elephant", "bear", "zebra", "giraffe"],
+    "low": ["person", "skateboard", "sports ball", "frisbee"]
+  },
+  "driving": {
+    "high": [
+      "person",
+      "bicycle",
+      "motorcycle",
+      "dog",
+      "cat",
+      "horse",
+      "cow",
+      "elephant",
+      "bear",
+      "zebra",
+      "deer"
+    ],
+    "medium": ["car", "truck", "bus", "traffic light", "stop sign"],
+    "low": ["bird", "sports ball", "frisbee"]
+  },
+  "scoring": {
+    "category_weights": {
+      "high": 1.0,
+      "medium": 0.5,
+      "low": 0.2
+    },
+    "distance_weights": {
+      "immediate": 1.0,
+      "near": 0.8,
+      "medium": 0.5,
+      "far": 0.2
+    },
+    "thresholds": {
+      "critical": 0.8,
+      "high": 0.5,
+      "medium": 0.3
+    }
+  },
+  "filters": {
+    "confidence_threshold": 0.5,
+    "min_box_height": 40
+  }
+}

@@ -11,8 +11,8 @@ from PIL import Image
 from ultralytics import YOLO
 
 MODULE_DIR = Path(__file__).resolve().parent  # .../models/yolo
-DEFAULT_WEIGHTS = MODULE_DIR / "weights" / "yolo11n.pt"
-DEFAULT_WEIGHTS_URL = "https://huggingface.co/Ultralytics/YOLO11/resolve/main/yolo11n.pt?download=true"
+DEFAULT_WEIGHTS = MODULE_DIR / "weights" / "yolov8n.pt"
+DEFAULT_WEIGHTS_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.pt"
 
 _MODEL_CACHE: dict[str, YOLO] = {}
 _MODEL_CACHE_LOCK = threading.Lock()
