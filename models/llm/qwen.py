@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+import yaml
 from PIL import Image
 from transformers import AutoProcessor
 
@@ -21,16 +22,66 @@ except Exception:  # noqa: BLE001
     snapshot_download = None
 
 _MODULE_DIR = Path(__file__).resolve().parent
-_RUNTIME_CONFIG = _MODULE_DIR.parent.parent / "config" / "runtime_config.json"
+_RUNTIME_CONFIG_YAML = _MODULE_DIR.parent.parent / "config" / "runtime_config.yaml"
+_RUNTIME_CONFIG_JSON = _MODULE_DIR.parent.parent / "config" / "runtime_config.json"
 
 _model = None
 _processor = None
 _load_lock = threading.Lock()
 
 
+def _load_json_with_comments(path: Path) -> dict[str, Any]:
+    text = path.read_text(encoding="utf-8")
+    out: list[str] = []
+    i = 0
+    in_string = False
+    escape = False
+    while i < len(text):
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < len(text) else ""
+        if in_string:
+            out.append(ch)
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+
+        if ch == '"':
+            in_string = True
+            out.append(ch)
+            i += 1
+            continue
+
+        if ch == "/" and nxt == "/":
+            i += 2
+            while i < len(text) and text[i] != "\n":
+                i += 1
+            continue
+
+        if ch == "/" and nxt == "*":
+            i += 2
+            while i + 1 < len(text) and not (text[i] == "*" and text[i + 1] == "/"):
+                i += 1
+            i += 2
+            continue
+
+        out.append(ch)
+        i += 1
+
+    return json.loads("".join(out))
+
+
 def _load_runtime_config() -> dict[str, Any]:
-    if _RUNTIME_CONFIG.exists():
-        return json.loads(_RUNTIME_CONFIG.read_text(encoding="utf-8"))
+    if _RUNTIME_CONFIG_YAML.exists():
+        data = yaml.safe_load(_RUNTIME_CONFIG_YAML.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return data
+    if _RUNTIME_CONFIG_JSON.exists():
+        return _load_json_with_comments(_RUNTIME_CONFIG_JSON)
     return {
         "llm": {
             "model_id": "Qwen/Qwen3-VL-2B-Instruct",
@@ -217,12 +268,17 @@ def describe_scene_from_frame(
     *,
     max_new_tokens: int = 80,
 ) -> str:
-    """Describe a frame using both image pixels and detection metadata."""
+    """Return safety text only when the frame is judged dangerous by the LLM."""
     img = Image.open(BytesIO(frame_bytes)).convert("RGB")
     detection_summary = _format_detections_for_prompt(detections, img_width=img.width)
     text_prompt = (
-        f"Detections: {detection_summary}. "
-        "Give ONE short factual safety-focused sentence, no speculation."
+        "You are a safety judge for a pedestrian scene.\n"
+        "Step 1: Decide if the current frame is dangerous right now (yes/no).\n"
+        "Step 2: If dangerous=yes, provide one short factual warning sentence.\n"
+        "Step 3: If dangerous=no, message must be empty.\n\n"
+        f"Detections: {detection_summary}\n\n"
+        "Return STRICT JSON only:\n"
+        '{"dangerous":"yes|no","message":"..."}'
     )
     messages = [
         {
@@ -233,4 +289,29 @@ def describe_scene_from_frame(
             ],
         }
     ]
-    return _generate(messages, image=img, max_new_tokens=max_new_tokens)
+    raw = _generate(messages, image=img, max_new_tokens=max_new_tokens).strip()
+
+    # Parse strict JSON response; keep robust fallback for minor format drift.
+    obj: dict[str, Any] | None = None
+    try:
+        obj = json.loads(raw)
+    except Exception:  # noqa: BLE001
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            try:
+                obj = json.loads(raw[start : end + 1])
+            except Exception:  # noqa: BLE001
+                obj = None
+
+    if isinstance(obj, dict):
+        dangerous = str(obj.get("dangerous", "")).strip().lower()
+        message = str(obj.get("message", "")).strip()
+        if dangerous == "yes":
+            return message
+        return ""
+
+    lower = raw.lower()
+    if '"dangerous":"yes"' in lower or '"dangerous": "yes"' in lower:
+        return raw
+    return ""

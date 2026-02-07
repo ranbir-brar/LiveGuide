@@ -1,0 +1,39 @@
+# Pipeline-level scheduling and safety state.
+pipeline:
+  # Expected YOLO processing frequency (frames per second).
+  yolo_target_fps: 6.0
+  # Enter danger state immediately when hazard_score >= this threshold.
+  danger_threshold: 0.85
+
+# LLM model and gating policy.
+llm:
+  # Hugging Face model ID used for first-time download.
+  model_id: "Qwen/Qwen3-VL-2B-Instruct"
+  # Local model directory (relative to project root).
+  local_model_dir: "models/llm/weights/Qwen3-VL-2B-Instruct"
+
+  # Max generated tokens per LLM response.
+  max_new_tokens: 80
+  # Sampling temperature for generation.
+  temperature: 0.2
+  # Nucleus sampling top-p value.
+  top_p: 0.9
+
+  # Probability formula constant: scaled_part = clamp01(yolo_score * this * probability_scale).
+  calls_per_second_constant: 0.8
+  # Hard upper bound on LLM calls per second.
+  max_calls_per_second: 1.5
+  # Minimum interval between LLM calls in milliseconds.
+  min_interval_ms: 300
+  # Extra multiplier on YOLO score before clamp.
+  probability_scale: 1.0
+  # Bias outside scale: final_p = bias + (1-bias) * scaled_part.
+  base_probability_bias: 0.1
+
+  # Whether to block LLM calls for highly similar consecutive YOLO results.
+  similarity_block_enabled: true
+  # Similarity threshold in [0,1], above which LLM call is blocked.
+  similarity_threshold: 0.9
+
+  # Random seed for deterministic LLM gating sampling.
+  rng_seed: 33054825

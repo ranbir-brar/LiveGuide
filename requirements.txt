@@ -6,3 +6,4 @@ huggingface_hub
 torch
 accelerate
 timm
+PyYAML

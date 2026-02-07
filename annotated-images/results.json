@@ -1,5 +1,6 @@
 [
   {
+    "frame_id": 0,
     "detections": [],
     "hazard": {
       "hazard_score": 0.0,
@@ -12,24 +13,44 @@
       "ignored_distant": 0,
       "auto_classified": 0
     },
+    "hazard_alert": "Path is clear.",
+    "danger": {
+      "threshold": 0.85,
+      "is_danger": false,
+      "active": false,
+      "just_entered": false,
+      "just_exited": false,
+      "immediate_alert": null
+    },
     "llm": {
-      "sent": true,
+      "sent": false,
+      "queued": false,
+      "done": true,
       "probability": 0.1,
-      "sampled": true,
-      "rate_allowed": true,
+      "sampled": false,
+      "rate_allowed": false,
+      "similarity_to_prev": null,
+      "similarity_blocked": false,
       "description": null,
-      "error": "The checkpoint you are trying to load has model type `qwen3_vl` but Transformers does not recognize this architecture. This could be because of an issue with the checkpoint, or because your version of Transformers is out of date."
+      "error": null
     },
     "latency": {
-      "preprocess_ms": 13.0,
-      "yolo_ms": 68.7,
+      "preprocess_ms": 13.5,
+      "yolo_ms": 62.5,
       "depth_ms": 0.0,
-      "hazard_ms": 0.5,
-      "total_ms": 276.2
+      "hazard_ms": 0.4,
+      "llm_ms": 0.0,
+      "total_ms": 76.4
+    },
+    "runtime": {
+      "yolo_pid": 13739,
+      "llm_pid": 13739,
+      "llm_worker_mode": "thread"
     },
     "source_image": "SWobs19-poster.png"
   },
   {
+    "frame_id": 1,
     "detections": [
       {
         "class_id": 90,
@@ -71,24 +92,44 @@
       "ignored_distant": 0,
       "auto_classified": 0
     },
+    "hazard_alert": "Path is clear.",
+    "danger": {
+      "threshold": 0.85,
+      "is_danger": false,
+      "active": false,
+      "just_entered": false,
+      "just_exited": false,
+      "immediate_alert": null
+    },
     "llm": {
       "sent": false,
+      "queued": false,
+      "done": true,
       "probability": 0.1,
       "sampled": false,
       "rate_allowed": false,
+      "similarity_to_prev": 0.0,
+      "similarity_blocked": false,
       "description": null,
       "error": null
     },
     "latency": {
-      "preprocess_ms": 4.7,
-      "yolo_ms": 1398.8,
-      "depth_ms": 1368.0,
+      "preprocess_ms": 5.3,
+      "yolo_ms": 1327.7,
+      "depth_ms": 1294.9,
       "hazard_ms": 0.0,
-      "total_ms": 1403.7
+      "llm_ms": 0.0,
+      "total_ms": 1333.0
+    },
+    "runtime": {
+      "yolo_pid": 13739,
+      "llm_pid": 13739,
+      "llm_worker_mode": "thread"
     },
     "source_image": "SWobs24-poster2.png"
   },
   {
+    "frame_id": 2,
     "detections": [],
     "hazard": {
       "hazard_score": 0.0,
@@ -101,24 +142,44 @@
       "ignored_distant": 0,
       "auto_classified": 0
     },
+    "hazard_alert": "Path is clear.",
+    "danger": {
+      "threshold": 0.85,
+      "is_danger": false,
+      "active": false,
+      "just_entered": false,
+      "just_exited": false,
+      "immediate_alert": null
+    },
     "llm": {
       "sent": false,
+      "queued": false,
+      "done": true,
       "probability": 0.1,
       "sampled": false,
       "rate_allowed": false,
+      "similarity_to_prev": 0.0,
+      "similarity_blocked": false,
       "description": null,
       "error": null
     },
     "latency": {
-      "preprocess_ms": 19.8,
-      "yolo_ms": 33.3,
+      "preprocess_ms": 20.9,
+      "yolo_ms": 33.9,
       "depth_ms": 0.0,
       "hazard_ms": 0.0,
-      "total_ms": 53.2
+      "llm_ms": 0.0,
+      "total_ms": 54.8
+    },
+    "runtime": {
+      "yolo_pid": 13739,
+      "llm_pid": 13739,
+      "llm_worker_mode": "thread"
     },
     "source_image": "another-sidewalk-obstruction-where-is-the-bylaw-enforcement-v0-6by1umfdiw4e1.png"
   },
   {
+    "frame_id": 3,
     "detections": [
       {
         "class_id": 90,
@@ -196,24 +257,44 @@
       "ignored_distant": 0,
       "auto_classified": 0
     },
+    "hazard_alert": "WARNING: car (70%).",
+    "danger": {
+      "threshold": 0.85,
+      "is_danger": false,
+      "active": false,
+      "just_entered": false,
+      "just_exited": false,
+      "immediate_alert": null
+    },
     "llm": {
-      "sent": false,
+      "sent": true,
+      "queued": false,
+      "done": true,
       "probability": 0.676,
-      "sampled": false,
-      "rate_allowed": false,
-      "description": null,
+      "sampled": true,
+      "rate_allowed": true,
+      "similarity_to_prev": 0.0,
+      "similarity_blocked": false,
+      "description": "A red car is parked on the side of the road, which may obstruct pedestrian access and create a hazard.",
       "error": null
     },
     "latency": {
       "preprocess_ms": 5.0,
-      "yolo_ms": 159.1,
-      "depth_ms": 129.7,
+      "yolo_ms": 249.6,
+      "depth_ms": 218.3,
       "hazard_ms": 0.0,
-      "total_ms": 164.3
+      "llm_ms": 10773.2,
+      "total_ms": 254.6
+    },
+    "runtime": {
+      "yolo_pid": 13739,
+      "llm_pid": 13739,
+      "llm_worker_mode": "thread"
     },
     "source_image": "suzhou-jiangsu-china-july-21-260nw-1057869248.png"
   },
   {
+    "frame_id": 4,
     "detections": [
       {
         "class_id": 553,
@@ -241,20 +322,39 @@
       "ignored_distant": 0,
       "auto_classified": 0
     },
+    "hazard_alert": "Path is clear.",
+    "danger": {
+      "threshold": 0.85,
+      "is_danger": false,
+      "active": false,
+      "just_entered": false,
+      "just_exited": false,
+      "immediate_alert": null
+    },
     "llm": {
       "sent": false,
+      "queued": false,
+      "done": true,
       "probability": 0.1,
       "sampled": false,
       "rate_allowed": false,
+      "similarity_to_prev": 0.0,
+      "similarity_blocked": false,
       "description": null,
       "error": null
     },
     "latency": {
-      "preprocess_ms": 2.8,
-      "yolo_ms": 177.5,
-      "depth_ms": 144.7,
-      "hazard_ms": 0.0,
-      "total_ms": 180.5
+      "preprocess_ms": 4.5,
+      "yolo_ms": 1465.0,
+      "depth_ms": 466.3,
+      "hazard_ms": 0.2,
+      "llm_ms": 0.0,
+      "total_ms": 1469.7
+    },
+    "runtime": {
+      "yolo_pid": 13739,
+      "llm_pid": 13739,
+      "llm_worker_mode": "thread"
     },
     "source_image": "swobs7-s.png"
   }
