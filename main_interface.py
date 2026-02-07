@@ -442,6 +442,36 @@ class FrameSequencePipeline:
         self._llm_in.join()
         self._drain_llm_out()
 
+    def poll_llm(self) -> int:
+        """Drain completed LLM results without blocking."""
+        return self._drain_llm_out()
+
+    def get_queue_status(self) -> dict[str, int]:
+        """Return current queue/throughput counters for terminal monitoring."""
+        self._drain_llm_out()
+        results = self.get_results()
+        llm_sent = 0
+        llm_done = 0
+        llm_queued = 0
+        for r in results:
+            llm = r.get("llm", {})
+            if llm.get("sent"):
+                llm_sent += 1
+            if llm.get("done"):
+                llm_done += 1
+            if llm.get("queued"):
+                llm_queued += 1
+        with self._llm_pending_lock:
+            pending = int(self._llm_pending)
+        return {
+            "total_frames": len(results),
+            "yolo_queue": 0,
+            "llm_sent": llm_sent,
+            "llm_done": llm_done,
+            "llm_queued": llm_queued,
+            "llm_pending": pending,
+        }
+
     def get_results(self) -> list[dict[str, Any]]:
         return [self._results_by_id[i] for i in self._ordered_ids]
 

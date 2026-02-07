@@ -43,3 +43,6 @@ models/llm/weights/
 # Local demo artifacts
 yolo/annotated.png
 yolo/result.json
+annotated.png
+result.json
+logs/
