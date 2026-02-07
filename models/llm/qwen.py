@@ -268,18 +268,23 @@ def describe_scene_from_frame(
     *,
     max_new_tokens: int = 80,
 ) -> str:
-    """Return safety text only when the frame is judged dangerous by the LLM."""
+    """Describe the scene for a visually impaired user navigating in real-time."""
     img = Image.open(BytesIO(frame_bytes)).convert("RGB")
     detection_summary = _format_detections_for_prompt(detections, img_width=img.width)
+    
     text_prompt = (
-        "You are a safety judge for a pedestrian scene.\n"
-        "Step 1: Decide if the current frame is dangerous right now (yes/no).\n"
-        "Step 2: If dangerous=yes, provide one short factual warning sentence.\n"
-        "Step 3: If dangerous=no, message must be empty.\n\n"
-        f"Detections: {detection_summary}\n\n"
-        "Return STRICT JSON only:\n"
-        '{"dangerous":"yes|no","message":"..."}'
+        "You are a live navigation assistant for a blind person walking.\n"
+        "Give a SHORT, ACTIONABLE description of what's ahead. Be specific about:\n"
+        "- Direction: left, right, ahead, approaching\n"
+        "- Distance: close, nearby, ahead\n"
+        "- Action needed: watch out, clear path, step aside\n\n"
+        f"Objects detected: {detection_summary}\n\n"
+        "Respond in ONE short sentence like a guide dog would alert. Examples:\n"
+        "- 'Person approaching on your left.'\n"
+        "- 'Clear path ahead, chair on right.'\n"
+        "- 'Car nearby on left, stay right.'\n"
     )
+    
     messages = [
         {
             "role": "user",
@@ -289,29 +294,5 @@ def describe_scene_from_frame(
             ],
         }
     ]
-    raw = _generate(messages, image=img, max_new_tokens=max_new_tokens).strip()
-
-    # Parse strict JSON response; keep robust fallback for minor format drift.
-    obj: dict[str, Any] | None = None
-    try:
-        obj = json.loads(raw)
-    except Exception:  # noqa: BLE001
-        start = raw.find("{")
-        end = raw.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            try:
-                obj = json.loads(raw[start : end + 1])
-            except Exception:  # noqa: BLE001
-                obj = None
-
-    if isinstance(obj, dict):
-        dangerous = str(obj.get("dangerous", "")).strip().lower()
-        message = str(obj.get("message", "")).strip()
-        if dangerous == "yes":
-            return message
-        return ""
-
-    lower = raw.lower()
-    if '"dangerous":"yes"' in lower or '"dangerous": "yes"' in lower:
-        return raw
-    return ""
+    
+    return _generate(messages, image=img, max_new_tokens=max_new_tokens).strip()

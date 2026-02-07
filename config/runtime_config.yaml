@@ -33,7 +33,11 @@ llm:
   # Whether to block LLM calls for highly similar consecutive YOLO results.
   similarity_block_enabled: true
   # Similarity threshold in [0,1], above which LLM call is blocked.
-  similarity_threshold: 0.9
+  similarity_threshold: 0.7
 
   # Random seed for deterministic LLM gating sampling.
   rng_seed: 33054825
+
+  # Always-call mode: bypass hazard scoring, call VLM at fixed intervals
+  always_call_mode: true
+  always_call_interval_sec: 2.5

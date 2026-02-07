@@ -1,11 +1,13 @@
 import atexit
 import json
 import threading
+import time
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
 
+import cv2
 import gradio as gr
 from PIL import Image
 
@@ -38,6 +40,13 @@ def close_pipeline() -> None:
         _PIPELINE = None
 
 
+def reset_pipeline() -> None:
+    """Close and recreate the pipeline for fresh video processing."""
+    global _PIPELINE
+    with _PIPELINE_LOCK:
+        close_pipeline()
+
+
 atexit.register(close_pipeline)
 
 
@@ -59,23 +68,23 @@ def _emit_log(event: str, payload: dict[str, Any]) -> None:
 
 
 def _format_yolo_panel(result: dict[str, Any]) -> str:
-    danger_on = bool(result["danger"]["active"])
-    lamp_color = "#E00000" if danger_on else "#3E4B59"
-    lamp_text = "DANGER" if danger_on else "SAFE"
+    """Format detected objects panel for display."""
     detections = result.get("detections", [])
     if detections:
-        obj_text = ", ".join(
-            f"{d.get('class_name', 'unknown')}({float(d.get('confidence', 0.0)):.2f})" for d in detections
-        )
+        obj_items = []
+        for d in sorted(detections, key=lambda x: -x.get("confidence", 0)):
+            name = d.get("class_name", "unknown")
+            conf = float(d.get("confidence", 0.0))
+            obj_items.append(f"{name} ({conf:.0%})")
+        obj_text = ", ".join(obj_items)
     else:
-        obj_text = "none"
+        obj_text = "No objects detected"
 
+    count = len(detections)
     return (
         "<div style='padding:10px;border:1px solid #d0d7de;border-radius:8px;'>"
-        f"<div style='display:flex;align-items:center;gap:8px;font-weight:600;'>"
-        f"<span style='width:14px;height:14px;border-radius:50%;display:inline-block;background:{lamp_color};'></span>"
-        f"<span>{lamp_text}</span></div>"
-        f"<div style='margin-top:8px;'><b>Objects:</b> {obj_text}</div>"
+        f"<div style='font-weight:600;'>Detected Objects ({count})</div>"
+        f"<div style='margin-top:8px;'>{obj_text}</div>"
         "</div>"
     )
 
@@ -152,22 +161,166 @@ def process_stream(frame: Any, state: dict[str, Any]) -> tuple[str, str, dict[st
         return yolo_panel, latest_llm_text, new_state
 
 
-with gr.Blocks(title="LiveGuide Webcam Hazard Monitor") as demo:
-    gr.Markdown("## LiveGuide Webcam Hazard Monitor")
-    gr.Markdown("YOLO: red light + objects. LLM: latest returned warning text.")
+def process_video_file(
+    video_path: str, fps: float, state: dict[str, Any]
+) -> Generator[tuple[Any, str, str, str, dict[str, Any]], None, None]:
+    """
+    Process a video file frame by frame at the specified FPS.
+    Yields (current_frame, progress_text, yolo_panel, llm_text, state) for each frame.
+    """
+    if video_path is None:
+        yield None, "No video uploaded", "", "", state
+        return
 
-    cam = gr.Image(sources=["webcam"], streaming=True, type="numpy", label="Webcam")
-    yolo_html = gr.HTML(label="YOLO Status")
-    llm_text = gr.Textbox(label="LLM Output", lines=4)
-    state = gr.State({"seen_llm_ids": [], "latest_llm_text": ""})
+    # Reset pipeline for fresh processing
+    reset_pipeline()
 
-    cam.stream(
-        fn=process_stream,
-        inputs=[cam, state],
-        outputs=[yolo_html, llm_text, state],
-        show_progress="hidden",
-    )
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        yield None, "Error: Cannot open video file", "", "", state
+        return
+
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    video_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    frame_interval = 1.0 / fps if fps > 0 else 1.0 / video_fps
+
+    frame_idx = 0
+    seen_ids = set(state.get("seen_llm_ids", []))
+    latest_llm_text = str(state.get("latest_llm_text", ""))
+
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            frame_idx += 1
+            start_time = time.time()
+
+            # Convert BGR to RGB for processing
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            with _PIPELINE_LOCK:
+                pipeline = get_pipeline()
+                frame_bytes = _to_jpeg_bytes(frame_rgb)
+                result = pipeline.submit_frames([frame_bytes])[-1]
+                pipeline.poll_llm()
+
+                results = pipeline.get_results()
+                for r in results:
+                    fid = int(r["frame_id"])
+                    llm = r.get("llm", {})
+                    if fid in seen_ids:
+                        continue
+                    if llm.get("sent") and llm.get("done"):
+                        seen_ids.add(fid)
+                        desc = (llm.get("description") or "").strip()
+                        err = (llm.get("error") or "").strip()
+                        if desc:
+                            latest_llm_text = f"frame={fid}: {desc}"
+                        if desc or err:
+                            _emit_log(
+                                "llm_video",
+                                {
+                                    "frame_id": fid,
+                                    "video_frame": frame_idx,
+                                    "sent": llm.get("sent"),
+                                    "done": llm.get("done"),
+                                    "description": desc,
+                                    "error": err,
+                                    "llm_ms": r.get("latency", {}).get("llm_ms", 0.0),
+                                },
+                            )
+
+                fid = int(result["frame_id"])
+                _emit_log(
+                    "yolo_video",
+                    {
+                        "frame_id": fid,
+                        "video_frame": frame_idx,
+                        "det_count": len(result.get("detections", [])),
+                        "hazard_level": result.get("hazard", {}).get("hazard_level"),
+                        "hazard_score": result.get("hazard", {}).get("hazard_score"),
+                        "danger_active": result.get("danger", {}).get("active"),
+                        "llm_sent": result.get("llm", {}).get("sent"),
+                    },
+                )
+
+                yolo_panel = _format_yolo_panel(result)
+
+            progress = f"Frame {frame_idx}/{total_frames} ({100*frame_idx/total_frames:.1f}%)"
+            new_state = {
+                "seen_llm_ids": sorted(seen_ids),
+                "latest_llm_text": latest_llm_text,
+            }
+
+            yield frame_rgb, progress, yolo_panel, latest_llm_text, new_state
+
+            # Maintain target FPS
+            elapsed = time.time() - start_time
+            sleep_time = frame_interval - elapsed
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+
+    finally:
+        cap.release()
+
+    # Final yield with completion message
+    yield None, f"Completed: {frame_idx} frames processed", yolo_panel, latest_llm_text, new_state
+
+
+with gr.Blocks(title="LiveGuide Scene Assistant") as demo:
+    gr.Markdown("## LiveGuide Scene Assistant")
+    gr.Markdown("Real-time scene descriptions for visual assistance. Objects detected by YOLO, scene narrated by VLM.")
+
+    with gr.Tabs():
+        # Tab 1: Webcam (original functionality)
+        with gr.TabItem("Webcam"):
+            cam = gr.Image(sources=["webcam"], streaming=True, type="numpy", label="Webcam")
+            webcam_yolo_html = gr.HTML(label="Detected Objects")
+            webcam_llm_text = gr.Textbox(label="Scene Description", lines=4)
+            webcam_state = gr.State({"seen_llm_ids": [], "latest_llm_text": ""})
+
+            cam.stream(
+                fn=process_stream,
+                inputs=[cam, webcam_state],
+                outputs=[webcam_yolo_html, webcam_llm_text, webcam_state],
+                show_progress="hidden",
+            )
+
+        # Tab 2: Video File (for debugging)
+        with gr.TabItem("Video File (Debug)"):
+            gr.Markdown("Upload a video file to process frame-by-frame for debugging.")
+            
+            with gr.Row():
+                video_input = gr.Video(label="Upload Video")
+                video_fps = gr.Slider(
+                    minimum=0.5,
+                    maximum=30,
+                    value=6,
+                    step=0.5,
+                    label="Processing FPS",
+                    info="Frames per second to process (lower = slower but more LLM calls)"
+                )
+            
+            process_btn = gr.Button("Process Video", variant="primary")
+            
+            with gr.Row():
+                video_frame_display = gr.Image(label="Current Frame", type="numpy")
+                video_progress = gr.Textbox(label="Progress", lines=1)
+            
+            video_yolo_html = gr.HTML(label="Detected Objects")
+            video_llm_text = gr.Textbox(label="Scene Description", lines=4)
+            video_state = gr.State({"seen_llm_ids": [], "latest_llm_text": ""})
+
+            process_btn.click(
+                fn=process_video_file,
+                inputs=[video_input, video_fps, video_state],
+                outputs=[video_frame_display, video_progress, video_yolo_html, video_llm_text, video_state],
+            )
 
 
 if __name__ == "__main__":
-    demo.launch()
+    # server_name="0.0.0.0" allows access from other devices on same network
+    # Access from phone using your PC's IP, e.g., http://192.168.1.x:7860
+    demo.launch(server_name="0.0.0.0", share=True)

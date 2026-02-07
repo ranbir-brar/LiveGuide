@@ -13,7 +13,7 @@ from PIL import Image
 import yaml
 
 from models.llm import describe_scene_from_frame
-from models.yolo import classify_hazard, detect_image_bytes, format_hazard_alert
+from models.yolo import detect_image_bytes
 
 RUNTIME_CONFIG_YAML_PATH = Path(__file__).resolve().parent / "config" / "runtime_config.yaml"
 RUNTIME_CONFIG_JSON_PATH = Path(__file__).resolve().parent / "config" / "runtime_config.json"
@@ -345,32 +345,40 @@ class FrameSequencePipeline:
             yolo_ms = (time.perf_counter() - yolo_start) * 1000
             detections = yolo_result["detections"]
 
-            hazard_start = time.perf_counter()
-            hazard = classify_hazard(detections, context=self.context)
-            hazard_ms = (time.perf_counter() - hazard_start) * 1000
-
-            yolo_score = float(hazard.get("hazard_score", 0.0))
-            danger_threshold = float(self.cfg.get("pipeline", {}).get("danger_threshold", 0.85))
-            is_danger_now = yolo_score >= danger_threshold
-            just_entered_danger = is_danger_now and not self._danger_active
-            just_exited_danger = (not is_danger_now) and self._danger_active
-            self._danger_active = is_danger_now
-
             current_sig = _build_detection_signature(detections)
             similarity_to_prev = None
             similarity_blocked = False
-            if self._prev_signature is not None:
-                similarity_to_prev = _signature_similarity(current_sig, self._prev_signature)
-                sim_enabled = bool(self.llm_cfg.get("similarity_block_enabled", True))
-                sim_threshold = float(self.llm_cfg.get("similarity_threshold", 0.9))
-                similarity_blocked = sim_enabled and (similarity_to_prev >= sim_threshold)
-            self._prev_signature = current_sig
-
-            if similarity_blocked:
-                llm_prob = self.llm_send_probability(yolo_score)
-                send_to_llm, llm_sampled, llm_rate_allowed = False, False, False
+            
+            # Check for always-call mode (bypasses hazard scoring)
+            always_call_mode = bool(self.llm_cfg.get("always_call_mode", False))
+            always_call_interval = float(self.llm_cfg.get("always_call_interval_sec", 1.5))
+            
+            if always_call_mode:
+                # Time-based: call VLM at fixed intervals regardless of detections
+                now = time.monotonic()
+                with self._last_llm_lock:
+                    time_since_last = now - self._last_llm_call_ts if self._last_llm_call_ts else float("inf")
+                    if time_since_last >= always_call_interval:
+                        send_to_llm = True
+                        self._last_llm_call_ts = now
+                    else:
+                        send_to_llm = False
+                llm_prob, llm_sampled, llm_rate_allowed = 1.0, True, send_to_llm
             else:
-                send_to_llm, llm_prob, llm_sampled, llm_rate_allowed = self.should_send_to_llm(yolo_score)
+                # Original probabilistic mode based on hazard score
+                if self._prev_signature is not None:
+                    similarity_to_prev = _signature_similarity(current_sig, self._prev_signature)
+                    sim_enabled = bool(self.llm_cfg.get("similarity_block_enabled", True))
+                    sim_threshold = float(self.llm_cfg.get("similarity_threshold", 0.9))
+                    similarity_blocked = sim_enabled and (similarity_to_prev >= sim_threshold)
+
+                if similarity_blocked:
+                    llm_prob = 0.0
+                    send_to_llm, llm_sampled, llm_rate_allowed = False, False, False
+                else:
+                    send_to_llm, llm_prob, llm_sampled, llm_rate_allowed = self.should_send_to_llm(0.5)
+            
+            self._prev_signature = current_sig
             queued = False
             if send_to_llm:
                 self._llm_in.put(
@@ -389,16 +397,6 @@ class FrameSequencePipeline:
                 "frame_id": frame_id,
                 "detections": detections,
                 "image_base64": yolo_result.get("image_base64"),
-                "hazard": hazard,
-                "hazard_alert": format_hazard_alert(hazard),
-                "danger": {
-                    "threshold": round(danger_threshold, 4),
-                    "is_danger": is_danger_now,
-                    "active": self._danger_active,
-                    "just_entered": just_entered_danger,
-                    "just_exited": just_exited_danger,
-                    "immediate_alert": "DANGER: frame marked dangerous." if just_entered_danger else None,
-                },
                 "llm": {
                     "sent": send_to_llm,
                     "queued": queued,
@@ -415,7 +413,6 @@ class FrameSequencePipeline:
                     "preprocess_ms": round(preprocess_ms, 1),
                     "yolo_ms": round(yolo_ms, 1),
                     "depth_ms": round(float(yolo_result.get("depth_ms", 0.0)), 1),
-                    "hazard_ms": round(hazard_ms, 1),
                     "llm_ms": 0.0,
                     "total_ms": round(total_ms, 1),
                 },
