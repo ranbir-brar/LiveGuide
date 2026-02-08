@@ -6,7 +6,7 @@
 - Processing model:
   - YOLO: frame-by-frame in the main process.
   - LLM: run as an independent process.
-- Queue structures (real queues, not just a naming convention):
+- Queue structures:
   - `self._llm_in`: LLM input queue (only frames with `sent=True` are enqueued).
   - `self._llm_out`: LLM output queue (LLM pushes results back after completion).
 - Real-time terminal output:
@@ -42,7 +42,9 @@ A YOLO frame is sent to LLM only if all of the following are satisfied:
 - If similarity with the previous frame's YOLO result is too high (default threshold `0.9`), it is not sent.
 
 2. Probabilistic gate is hit
-- `P = bias + (1-bias) * clamp01(yolo_score * constant * probability_scale)`
+- `x = yolo_score * constant * probability_scale`
+- `smooth(x) = x / (x + tau)`  (for `x >= 0`)
+- `P = bias + (1-bias) * smooth(x)`
 - It must pass random sampling before continuing.
 
 3. Rate limit check passes
