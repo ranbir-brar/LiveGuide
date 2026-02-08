@@ -2,9 +2,15 @@ numpy
 Pillow
 ultralytics
 transformers>=4.57.0
-huggingface_hub
+huggingface_hub>=0.34.0
 torch
 accelerate
 timm
 PyYAML
-gradio
+gradio>=5.0.0
+piper-tts
+sounddevice
+fastapi
+pydantic>=2.8.0
+elevenlabs>=0.2.24
+websockets>=12.0

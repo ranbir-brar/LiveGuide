@@ -189,6 +189,31 @@ def synthesize(
     return wav_bytes
 
 
+def wav_bytes_to_numpy(wav_bytes: bytes) -> tuple[int, Any]:
+    """Convert WAV bytes to (sample_rate, numpy_array)."""
+    import numpy as np
+
+    buffer = io.BytesIO(wav_bytes)
+    with wave.open(buffer, "rb") as wav_file:
+        sample_rate = wav_file.getframerate()
+        n_channels = wav_file.getnchannels()
+        sample_width = wav_file.getsampwidth()
+        frames = wav_file.readframes(wav_file.getnframes())
+
+    if sample_width == 2:
+        dtype = np.int16
+    elif sample_width == 1:
+        dtype = np.uint8
+    else:
+        dtype = np.int32
+
+    audio_data = np.frombuffer(frames, dtype=dtype)
+    if n_channels > 1:
+        audio_data = audio_data.reshape(-1, n_channels)
+    
+    return sample_rate, audio_data
+
+
 def speak(
     text: str,
     *,
@@ -227,27 +252,7 @@ def speak(
         import sounddevice as sd
         _sounddevice = sd
 
-    # Parse WAV and play
-    buffer = io.BytesIO(wav_bytes)
-    with wave.open(buffer, "rb") as wav_file:
-        sample_rate = wav_file.getframerate()
-        n_channels = wav_file.getnchannels()
-        sample_width = wav_file.getsampwidth()
-        frames = wav_file.readframes(wav_file.getnframes())
-
-    # Convert bytes to numpy array
-    import numpy as np
-
-    if sample_width == 2:
-        dtype = np.int16
-    elif sample_width == 1:
-        dtype = np.uint8
-    else:
-        dtype = np.int32
-
-    audio_data = np.frombuffer(frames, dtype=dtype)
-    if n_channels > 1:
-        audio_data = audio_data.reshape(-1, n_channels)
+    sample_rate, audio_data = wav_bytes_to_numpy(wav_bytes)
 
     # Play audio
     _sounddevice.play(audio_data, samplerate=sample_rate)

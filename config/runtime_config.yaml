@@ -15,7 +15,7 @@ llm:
 
   # Gemini API settings (used when provider=gemini_api)
   gemini_model: "gemini-2.0-flash"
-  gemini_api_key: ""
+  gemini_api_key: "AIzaSyA-ZhaxmqpREx-mwe4crmpVgiSyeZRvmWg"
   gemini_api_key_env: "GEMINI_API_KEY"
 
   # Max generated tokens per LLM response.
@@ -27,3 +27,19 @@ llm:
 
   # Fixed VLM call interval in seconds.
   llm_call_interval_sec: 2.5
+
+# Text-to-speech settings.
+tts:
+  # TTS backend provider: piper | elevenlabs
+  provider: "piper"
+
+  # Skip TTS if new description is too similar to last spoken (0.0-1.0)
+  # Lower = only skip very similar, Higher = skip even somewhat different
+  similarity_threshold: 0.5
+  # Minimum seconds between TTS alerts to prevent spamming
+  min_tts_interval: 2.0
+
+  # ElevenLabs settings
+  elevenlabs:
+    api_key: "sk_0e8c501cbe4b1a89f0b148808080c9a84d7c8ca8adbf8d5d"
+    voice_id: "21m00Tcm4TlvDq8ikWAM" # Rachel (default)
