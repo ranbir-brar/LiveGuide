@@ -6,7 +6,7 @@
 - Processing model:
   - YOLO: frame-by-frame in the main process.
   - LLM: run as an independent process.
-- Queue structures (real queues, not just a naming convention):
+- Queue structures:
   - `self._llm_in`: LLM input queue (only frames with `sent=True` are enqueued).
   - `self._llm_out`: LLM output queue (LLM pushes results back after completion).
 - Real-time terminal output:
