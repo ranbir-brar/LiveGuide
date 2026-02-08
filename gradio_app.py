@@ -32,6 +32,7 @@ class SessionContext:
     lock: threading.Lock
     event_log: Path
     last_active_ts: float
+    runtime_detection_sensitivity: float
 
 
 _SESSIONS_LOCK = threading.Lock()
@@ -611,11 +612,15 @@ def _default_detection_sensitivity() -> float:
     cfg = load_runtime_config().get("gradio", {})
     if not isinstance(cfg, dict):
         cfg = {}
+    return _normalize_detection_sensitivity(cfg.get("detection_sensitivity", 5.0))
+
+
+def _normalize_detection_sensitivity(value: Any, *, fallback: float = 5.0) -> float:
     try:
-        value = float(cfg.get("detection_sensitivity", 5.0))
+        normalized = float(value)
     except Exception:
-        value = 5.0
-    return min(10.0, max(1.0, value))
+        normalized = float(fallback)
+    return min(10.0, max(1.0, normalized))
 
 
 def _session_id(request: gr.Request | None) -> str:
@@ -634,6 +639,7 @@ def _get_or_create_session(request: gr.Request | None) -> tuple[str, SessionCont
                 lock=threading.Lock(),
                 event_log=LOG_DIR / f"webcam_events_{sid}.jsonl",
                 last_active_ts=now,
+                runtime_detection_sensitivity=_default_detection_sensitivity(),
             )
             _SESSIONS[sid] = ctx
         else:
@@ -646,6 +652,7 @@ def _reset_session_pipeline(request: gr.Request | None) -> tuple[str, SessionCon
     with ctx.lock:
         ctx.pipeline.close()
         ctx.pipeline = _new_pipeline()
+        ctx.pipeline.set_detection_sensitivity(ctx.runtime_detection_sensitivity)
         ctx.last_active_ts = time.time()
     return sid, ctx
 
@@ -688,6 +695,22 @@ def _session_cleanup_loop() -> None:
 
 def _touch_session(ctx: SessionContext) -> None:
     ctx.last_active_ts = time.time()
+
+
+def _set_runtime_detection_sensitivity(
+    detection_sensitivity: float,
+    request: gr.Request | None = None,
+) -> None:
+    sid = _session_id(request)
+    sensitivity = _normalize_detection_sensitivity(detection_sensitivity)
+    with _SESSIONS_LOCK:
+        ctx = _SESSIONS.get(sid)
+    if ctx is None:
+        return
+    with ctx.lock:
+        ctx.runtime_detection_sensitivity = sensitivity
+        ctx.pipeline.set_detection_sensitivity(sensitivity)
+        _touch_session(ctx)
 
 
 def _close_all_sessions() -> None:
@@ -877,7 +900,9 @@ def process_stream(
         _touch_session(ctx)
         pipeline = ctx.pipeline
         pipeline.set_llm_provider(llm_provider)
-        pipeline.set_detection_sensitivity(detection_sensitivity)
+        sensitivity = _normalize_detection_sensitivity(detection_sensitivity)
+        ctx.runtime_detection_sensitivity = sensitivity
+        pipeline.set_detection_sensitivity(sensitivity)
         frame_bytes = _to_jpeg_bytes(frame)
         result = pipeline.submit_frames([frame_bytes])[-1]
         pipeline.poll_llm()
@@ -977,6 +1002,10 @@ def process_video_file(
 
     # Reset only this user's pipeline for fresh processing
     sid, ctx = _reset_session_pipeline(request)
+    initial_sensitivity = _normalize_detection_sensitivity(detection_sensitivity)
+    with ctx.lock:
+        ctx.runtime_detection_sensitivity = initial_sensitivity
+        ctx.pipeline.set_detection_sensitivity(initial_sensitivity)
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -1032,7 +1061,8 @@ def process_video_file(
                 current_audio_html: str | None = None
                 pipeline = ctx.pipeline
                 pipeline.set_llm_provider(llm_provider)
-                pipeline.set_detection_sensitivity(detection_sensitivity)
+                runtime_sensitivity = _normalize_detection_sensitivity(ctx.runtime_detection_sensitivity)
+                pipeline.set_detection_sensitivity(runtime_sensitivity)
                 frame_bytes = _to_jpeg_bytes(frame_rgb)
                 result = pipeline.submit_frames([frame_bytes])[-1]
                 pipeline.poll_llm()
@@ -1181,6 +1211,12 @@ with gr.Blocks(title="LiveGuide Scene Assistant", js=FORCE_LIGHT_MODE_JS) as dem
                 info="Auto play",
                 scale=1,
                 elem_id="tts-toggle",
+            )
+            detection_sensitivity.change(
+                fn=_set_runtime_detection_sensitivity,
+                inputs=[detection_sensitivity],
+                outputs=[],
+                show_progress="hidden",
             )
 
         with gr.Tabs(elem_id="main-tabs"):
