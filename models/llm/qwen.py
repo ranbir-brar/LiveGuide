@@ -4,7 +4,7 @@ import json
 import threading
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import torch
 import yaml
@@ -209,7 +209,7 @@ def describe_scene_from_detections(detections: list[dict[str, Any]], *, max_new_
     return describe_scene(prompt, max_new_tokens=max_new_tokens)
 
 
-def _generate(messages: list[dict[str, Any]], image: Image.Image | None, max_new_tokens: int) -> str:
+def _generate(messages: list[dict[str, Any]], image: Optional[Image.Image], max_new_tokens: int) -> str:
     model, processor = _get_model_and_processor()
     cfg = _load_runtime_config().get("llm", {})
     temperature = float(cfg.get("temperature", 0.2))
