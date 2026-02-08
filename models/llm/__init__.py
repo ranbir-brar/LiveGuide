@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -68,14 +68,14 @@ def _load_runtime_config() -> dict[str, Any]:
     return {"llm": {"provider": "qwen_local"}}
 
 
-def _resolve_provider(provider: Optional[str]) -> str:
+def _resolve_provider(provider: str | None) -> str:
     if provider and str(provider).strip():
         return str(provider).strip().lower()
     cfg = _load_runtime_config().get("llm", {})
     return str(cfg.get("provider", "qwen_local")).strip().lower()
 
 
-def describe_scene(prompt: str, *, max_new_tokens: int = 80, provider: Optional[str] = None) -> str:
+def describe_scene(prompt: str, *, max_new_tokens: int = 80, provider: str | None = None) -> str:
     p = _resolve_provider(provider)
     if p == "gemini_api":
         if gemini is None:
@@ -88,7 +88,7 @@ def describe_scene_from_detections(
     detections: list[dict[str, Any]],
     *,
     max_new_tokens: int = 80,
-    provider: Optional[str] = None,
+    provider: str | None = None,
 ) -> str:
     p = _resolve_provider(provider)
     if p == "gemini_api":
@@ -103,7 +103,7 @@ def describe_scene_from_frame(
     detections: list[dict[str, Any]],
     *,
     max_new_tokens: int = 80,
-    provider: Optional[str] = None,
+    provider: str | None = None,
 ) -> str:
     p = _resolve_provider(provider)
     if p == "gemini_api":
