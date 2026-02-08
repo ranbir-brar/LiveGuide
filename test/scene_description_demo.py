@@ -1,5 +1,5 @@
 #**********************************************************
-# Hazard Detection Demo                                   #
+# Video Assist Image Demo                                 #
 # Sequence pipeline via main interface                    #
 #**********************************************************
 
@@ -34,8 +34,6 @@ def main() -> int:
     output_dir = here.parent / "annotated-images"
     output_dir.mkdir(exist_ok=True)
 
-    context = "walking"
-
     image_files = sorted(
         [
             f
@@ -51,7 +49,7 @@ def main() -> int:
     frames = [p.read_bytes() for p in image_files]
     all_results = run_frame_sequence(
         frames,
-        context=context,
+        context="general",
         use_depth=True,
         preprocess_size=256,
         imgsz=256,
@@ -60,35 +58,23 @@ def main() -> int:
     )
 
     print(f"Found {len(image_files)} image(s) in {test_images_dir.name}/")
-    print(f"Context: {context}")
     print("=" * 60)
 
     for img_path, result in zip(image_files, all_results):
-        hazard = result["hazard"]
         latency = result["latency"]
         llm = result["llm"]
-        danger = result["danger"]
 
         print(f"\n>> {img_path.name}")
-        print(
-            f"   Detected: {len(result['detections'])} objects, "
-            f"Filtered: {hazard['ignored_distant']} distant"
-        )
+        print(f"   Detected: {len(result['detections'])} objects")
 
         if result["detections"]:
             objects = [f"{d['class_name']}" for d in result["detections"]]
             print(f"   Objects: {', '.join(objects)}")
 
-        print(f"   Hazard Score: {hazard['hazard_score']:.2f} ({hazard['hazard_level'].upper()})")
-        print(f"   Alert: {result['hazard_alert']}")
-        print(
-            f"   Danger: active={danger['active']} entered={danger['just_entered']} "
-            f"exited={danger['just_exited']} threshold={danger['threshold']:.2f}"
-        )
         print(
             f"   LLM Gate: sent={llm['sent']} prob={llm['probability']:.2f} "
             f"sampled={llm['sampled']} rate_ok={llm['rate_allowed']} "
-            f"sim_block={llm['similarity_blocked']}"
+            f"provider={result['runtime'].get('llm_provider')}"
         )
         if llm.get("description"):
             print(f"   LLM: {llm['description']}")

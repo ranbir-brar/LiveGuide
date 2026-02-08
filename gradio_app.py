@@ -11,10 +11,8 @@ import cv2
 import gradio as gr
 from PIL import Image
 
-import time
-import tempfile
-from main import FrameSequencePipeline
-from models.tts import speak, synthesize
+from main import FrameSequencePipeline, load_runtime_config
+from models.tts import speak
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -29,7 +27,7 @@ def get_pipeline() -> FrameSequencePipeline:
     global _PIPELINE
     if _PIPELINE is None:
         _PIPELINE = FrameSequencePipeline(
-            context="walking",
+            context="general",
             use_depth=True,
             return_annotated=False,
             llm_worker_mode="process",
@@ -93,12 +91,13 @@ def _format_yolo_panel(result: dict[str, Any]) -> str:
     )
 
 
-def process_stream(frame: Any, state: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
+def process_stream(frame: Any, state: dict[str, Any], llm_provider: str) -> tuple[str, str, dict[str, Any]]:
     if frame is None:
         return "No frame", "", state
 
     with _PIPELINE_LOCK:
         pipeline = get_pipeline()
+        pipeline.set_llm_provider(llm_provider)
         frame_bytes = _to_jpeg_bytes(frame)
         result = pipeline.submit_frames([frame_bytes])[-1]
         pipeline.poll_llm()
@@ -157,7 +156,8 @@ def process_stream(frame: Any, state: dict[str, Any]) -> tuple[str, str, dict[st
             "[QUEUE] "
             f"frames={q['total_frames']} yolo_queue={q['yolo_queue']} "
             f"llm_sent={q['llm_sent']} llm_done={q['llm_done']} "
-            f"llm_queued={q['llm_queued']} llm_pending={q['llm_pending']}"
+            f"llm_queued={q['llm_queued']} llm_pending={q['llm_pending']} "
+            f"provider={result.get('runtime', {}).get('llm_provider', llm_provider)}"
         )
 
         yolo_panel = _format_yolo_panel(result)
@@ -170,7 +170,7 @@ def process_stream(frame: Any, state: dict[str, Any]) -> tuple[str, str, dict[st
 
 
 def process_video_file(
-    video_path: str, fps: float, state: dict[str, Any]
+    video_path: str, fps: float, state: dict[str, Any], llm_provider: str
 ) -> Generator[tuple[Any, str, str, str, dict[str, Any]], None, None]:
     """
     Process a video file frame by frame at the specified FPS.
@@ -210,6 +210,7 @@ def process_video_file(
 
             with _PIPELINE_LOCK:
                 pipeline = get_pipeline()
+                pipeline.set_llm_provider(llm_provider)
                 frame_bytes = _to_jpeg_bytes(frame_rgb)
                 result = pipeline.submit_frames([frame_bytes])[-1]
                 pipeline.poll_llm()
@@ -247,10 +248,8 @@ def process_video_file(
                         "frame_id": fid,
                         "video_frame": frame_idx,
                         "det_count": len(result.get("detections", [])),
-                        "hazard_level": result.get("hazard", {}).get("hazard_level"),
-                        "hazard_score": result.get("hazard", {}).get("hazard_score"),
-                        "danger_active": result.get("danger", {}).get("active"),
                         "llm_sent": result.get("llm", {}).get("sent"),
+                        "llm_provider": result.get("runtime", {}).get("llm_provider"),
                     },
                 )
 
@@ -280,6 +279,13 @@ def process_video_file(
 with gr.Blocks(title="LiveGuide Scene Assistant") as demo:
     gr.Markdown("## LiveGuide Scene Assistant")
     gr.Markdown("Real-time scene descriptions for visual assistance. Objects detected by YOLO, scene narrated by VLM.")
+    default_provider = str(load_runtime_config().get("llm", {}).get("provider", "qwen_local"))
+    llm_provider = gr.Dropdown(
+        choices=["qwen_local", "gemini_api"],
+        value=default_provider if default_provider in {"qwen_local", "gemini_api"} else "qwen_local",
+        label="VLM Model",
+        info="Switch live between local Qwen and Gemini API",
+    )
 
     with gr.Tabs():
         # Tab 1: Webcam (original functionality)
@@ -291,17 +297,17 @@ with gr.Blocks(title="LiveGuide Scene Assistant") as demo:
 
             cam.stream(
                 fn=process_stream,
-                inputs=[cam, webcam_state],
+                inputs=[cam, webcam_state, llm_provider],
                 outputs=[webcam_yolo_html, webcam_llm_text, webcam_state],
                 show_progress="hidden",
             )
 
         # Tab 2: Video File (for debugging)
-        with gr.TabItem("Video File (Debug)"):
+        with gr.TabItem("Video File"):
             gr.Markdown("Upload a video file to process frame-by-frame for debugging.")
             
             with gr.Row():
-                video_input = gr.Video(label="Upload Video")
+                video_input = gr.Video(sources=["upload"], label="Upload Video")
                 video_fps = gr.Slider(
                     minimum=0.5,
                     maximum=30,
@@ -321,9 +327,21 @@ with gr.Blocks(title="LiveGuide Scene Assistant") as demo:
             video_llm_text = gr.Textbox(label="Scene Description", lines=4)
             video_state = gr.State({"seen_llm_ids": [], "latest_llm_text": ""})
 
+            test_videos_dir = Path(__file__).resolve().parent / "test" / "test_videos"
+            test_videos_dir.mkdir(parents=True, exist_ok=True)
+            sample_videos = sorted(
+                str(p) for p in test_videos_dir.iterdir() if p.suffix.lower() in {".mp4", ".mov", ".avi", ".mkv", ".webm"}
+            )
+            if sample_videos:
+                gr.Examples(
+                    examples=[[v] for v in sample_videos],
+                    inputs=[video_input],
+                    label="Local Sample Videos (test/test_videos)",
+                )
+
             process_btn.click(
                 fn=process_video_file,
-                inputs=[video_input, video_fps, video_state],
+                inputs=[video_input, video_fps, video_state, llm_provider],
                 outputs=[video_frame_display, video_progress, video_yolo_html, video_llm_text, video_state],
             )
 

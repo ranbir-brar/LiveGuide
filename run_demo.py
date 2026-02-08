@@ -1,49 +1,58 @@
-"""Simple LiveGuide demo - YOLO hazard detection + TTS speech.
+"""Simple LiveGuide demo - YOLO objects + VLM description + optional TTS.
 
 Run: python run_demo.py
 """
+
 from pathlib import Path
 
+from main import run_frame_sequence
 from models.tts import speak
-from models.yolo import classify_hazard, detect_image_bytes, format_hazard_alert
 
 
-def main():
-    test_dir = Path("data/test_images")
-    image_files = list(test_dir.glob("*.png")) + list(test_dir.glob("*.jpg"))
-    
+def main() -> int:
+    test_dir = Path("test/test_images")
+    image_files = sorted([*test_dir.glob("*.png"), *test_dir.glob("*.jpg"), *test_dir.glob("*.jpeg")])
+
     if not image_files:
-        print("No images found in data/test_images/")
-        return
-    
+        print("No images found in test/test_images/")
+        return 1
+
     print(f"Found {len(image_files)} image(s)")
     print("=" * 50)
-    
-    for img_path in sorted(image_files):
+
+    frames = [p.read_bytes() for p in image_files]
+    results = run_frame_sequence(
+        frames,
+        context="general",
+        use_depth=False,
+        return_annotated=False,
+        wait_for_llm=True,
+        llm_worker_mode="process",
+    )
+
+    for img_path, res in zip(image_files, results, strict=True):
         print(f"\n>> {img_path.name}")
-        
-        # Detect objects with YOLO (no depth to speed things up)
-        img_bytes = img_path.read_bytes()
-        result = detect_image_bytes(img_bytes, use_depth=False)
-        detections = result["detections"]
-        
-        # Classify hazards
-        hazard = classify_hazard(detections, context="walking")
-        alert = format_hazard_alert(hazard)
-        
-        # Show results
+        detections = res.get("detections", [])
         if detections:
-            objects = [d["class_name"] for d in detections]
+            objects = [d.get("class_name", "unknown") for d in detections]
             print(f"   Objects: {', '.join(objects)}")
-        print(f"   Hazard: {hazard['hazard_level'].upper()}")
-        print(f"   Alert: {alert}")
-        
-        # SPEAK the alert!
-        speak(alert)
-    
+        else:
+            print("   Objects: none")
+
+        llm = res.get("llm", {})
+        if llm.get("description"):
+            text = llm["description"]
+            print(f"   VLM: {text}")
+            speak(text, blocking=False)
+        elif llm.get("error"):
+            print(f"   VLM Error: {llm['error']}")
+        else:
+            print("   VLM: (no message)")
+
     print("\n" + "=" * 50)
     print("Done!")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

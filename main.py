@@ -2,7 +2,6 @@ import json
 import multiprocessing as mp
 import os
 import queue
-import random
 import threading
 import time
 from io import BytesIO
@@ -72,34 +71,12 @@ def load_runtime_config() -> dict[str, Any]:
     if RUNTIME_CONFIG_JSON_PATH.exists():
         return _load_json_with_comments(RUNTIME_CONFIG_JSON_PATH)
     return {
-        "pipeline": {"yolo_target_fps": 6.0, "danger_threshold": 0.85},
+        "pipeline": {"yolo_target_fps": 6.0},
         "llm": {
             "max_new_tokens": 80,
-            "calls_per_second_constant": 0.8,
-            "max_calls_per_second": 1.5,
-            "min_interval_ms": 300,
-            "probability_scale": 1.0,
-            "base_probability_bias": 0.1,
-            "similarity_block_enabled": True,
-            "similarity_threshold": 0.9,
-            "rng_seed": 42,
+            "llm_call_interval_sec": 2.5,
         },
     }
-
-
-def _clamp01(value: float) -> float:
-    return max(0.0, min(1.0, float(value)))
-
-
-def _smooth_positive_to_unit(x: float, tau: float = 0.35) -> float:
-    """
-    Smoothly map x>=0 to [0,1):
-      f(x) = x / (x + tau), tau>0
-    Compared to hard clamp, this avoids sharp saturation and keeps continuity.
-    """
-    x = max(0.0, float(x))
-    tau = max(1e-6, float(tau))
-    return x / (x + tau)
 
 
 def preprocess_image(img_bytes: bytes, target_size: int = 256) -> bytes:
@@ -108,39 +85,6 @@ def preprocess_image(img_bytes: bytes, target_size: int = 256) -> bytes:
     buf = BytesIO()
     resized.save(buf, format="JPEG", quality=85)
     return buf.getvalue()
-
-
-def _build_detection_signature(detections: list[dict[str, Any]]) -> dict[str, float]:
-    """Map class_name -> max confidence for similarity comparison."""
-    sig: dict[str, float] = {}
-    for det in detections:
-        name = str(det.get("class_name", "")).lower()
-        conf = float(det.get("confidence", 0.0))
-        if not name:
-            continue
-        if name not in sig or conf > sig[name]:
-            sig[name] = conf
-    return sig
-
-
-def _signature_similarity(sig_a: dict[str, float], sig_b: dict[str, float]) -> float:
-    """
-    Weighted Jaccard-like similarity on class-confidence signatures:
-    sum(min(conf))/sum(max(conf)).
-    """
-    keys = set(sig_a) | set(sig_b)
-    if not keys:
-        return 1.0
-    num = 0.0
-    den = 0.0
-    for k in keys:
-        a = sig_a.get(k, 0.0)
-        b = sig_b.get(k, 0.0)
-        num += min(a, b)
-        den += max(a, b)
-    if den <= 1e-8:
-        return 1.0
-    return _clamp01(num / den)
 
 
 def _llm_worker_process(
@@ -159,6 +103,7 @@ def _llm_worker_process(
                 task["processed_bytes"],
                 task["detections"],
                 max_new_tokens=int(llm_cfg.get("max_new_tokens", 80)),
+                provider=task.get("llm_provider"),
             )
             elapsed_ms = (time.perf_counter() - start) * 1000
             out_queue.put(
@@ -190,7 +135,7 @@ class FrameSequencePipeline:
     def __init__(
         self,
         *,
-        context: str = "walking",
+        context: str = "general",
         use_depth: bool = True,
         preprocess_size: int = 256,
         imgsz: int = 256,
@@ -206,8 +151,7 @@ class FrameSequencePipeline:
         self.llm_worker_mode = llm_worker_mode
 
         self.llm_cfg = self.cfg.get("llm", {})
-        self._rng = random.Random(int(self.llm_cfg.get("rng_seed", 42)))
-        self._rng_lock = threading.Lock()
+        self.llm_provider = str(self.llm_cfg.get("provider", "qwen_local")).strip().lower()
 
         self._last_llm_call_ts = 0.0
         self._last_llm_lock = threading.Lock()
@@ -232,8 +176,6 @@ class FrameSequencePipeline:
         self._results_by_id: dict[int, dict[str, Any]] = {}
         self._ordered_ids: list[int] = []
         self._next_frame_id = 0
-        self._danger_active = False
-        self._prev_signature: dict[str, float] | None = None
         self._llm_pending = 0
         self._llm_pending_lock = threading.Lock()
 
@@ -245,37 +187,10 @@ class FrameSequencePipeline:
         if self._worker is not None:
             self._worker.join(timeout=5)
 
-    def llm_send_probability(self, yolo_score: float) -> float:
-        """
-        Bias outside scale:
-        P = bias + (1 - bias) * smooth(yolo_score * constant * probability_scale)
-        """
-        constant = float(self.llm_cfg.get("calls_per_second_constant", 0.8))
-        score_scale = float(self.llm_cfg.get("probability_scale", 1.0))
-        bias = _clamp01(float(self.llm_cfg.get("base_probability_bias", 0.1)))
-        tau = float(self.llm_cfg.get("probability_smoothing_tau", 0.35))
-        scaled_input = float(yolo_score) * constant * score_scale
-        scaled_part = _smooth_positive_to_unit(scaled_input, tau=tau)
-        return bias + (1.0 - bias) * scaled_part
-
-    def _rate_allowed(self) -> bool:
-        max_calls_per_sec = float(self.llm_cfg.get("max_calls_per_second", 1.5))
-        min_interval_sec = float(self.llm_cfg.get("min_interval_ms", 300)) / 1000.0
-        per_call_interval = 1.0 / max_calls_per_sec if max_calls_per_sec > 0 else 1.0
-        now = time.monotonic()
-
-        with self._last_llm_lock:
-            if self._last_llm_call_ts and (now - self._last_llm_call_ts) < max(min_interval_sec, per_call_interval):
-                return False
-            self._last_llm_call_ts = now
-            return True
-
-    def should_send_to_llm(self, yolo_score: float) -> tuple[bool, float, bool, bool]:
-        probability = self.llm_send_probability(yolo_score)
-        with self._rng_lock:
-            sampled = self._rng.random() < probability
-        rate_allowed = self._rate_allowed() if sampled else False
-        return sampled and rate_allowed, probability, sampled, rate_allowed
+    def set_llm_provider(self, provider: str) -> None:
+        provider_norm = str(provider).strip().lower()
+        if provider_norm in {"qwen_local", "gemini_api"}:
+            self.llm_provider = provider_norm
 
     def _llm_worker(self) -> None:
         while True:
@@ -291,6 +206,7 @@ class FrameSequencePipeline:
                     task["processed_bytes"],
                     task["detections"],
                     max_new_tokens=int(self.llm_cfg.get("max_new_tokens", 80)),
+                    provider=task.get("llm_provider"),
                 )
                 elapsed_ms = (time.perf_counter() - start) * 1000
                 self._llm_out.put(
@@ -358,40 +274,14 @@ class FrameSequencePipeline:
             yolo_ms = (time.perf_counter() - yolo_start) * 1000
             detections = yolo_result["detections"]
 
-            current_sig = _build_detection_signature(detections)
-            similarity_to_prev = None
-            similarity_blocked = False
-            
-            # Check for always-call mode (bypasses hazard scoring)
-            always_call_mode = bool(self.llm_cfg.get("always_call_mode", False))
-            always_call_interval = float(self.llm_cfg.get("always_call_interval_sec", 1.5))
-            
-            if always_call_mode:
-                # Time-based: call VLM at fixed intervals regardless of detections
-                now = time.monotonic()
-                with self._last_llm_lock:
-                    time_since_last = now - self._last_llm_call_ts if self._last_llm_call_ts else float("inf")
-                    if time_since_last >= always_call_interval:
-                        send_to_llm = True
-                        self._last_llm_call_ts = now
-                    else:
-                        send_to_llm = False
-                llm_prob, llm_sampled, llm_rate_allowed = 1.0, True, send_to_llm
-            else:
-                # Original probabilistic mode based on hazard score
-                if self._prev_signature is not None:
-                    similarity_to_prev = _signature_similarity(current_sig, self._prev_signature)
-                    sim_enabled = bool(self.llm_cfg.get("similarity_block_enabled", True))
-                    sim_threshold = float(self.llm_cfg.get("similarity_threshold", 0.9))
-                    similarity_blocked = sim_enabled and (similarity_to_prev >= sim_threshold)
-
-                if similarity_blocked:
-                    llm_prob = 0.0
-                    send_to_llm, llm_sampled, llm_rate_allowed = False, False, False
-                else:
-                    send_to_llm, llm_prob, llm_sampled, llm_rate_allowed = self.should_send_to_llm(0.5)
-            
-            self._prev_signature = current_sig
+            llm_call_interval = float(self.llm_cfg.get("llm_call_interval_sec", 2.5))
+            now = time.monotonic()
+            with self._last_llm_lock:
+                elapsed = now - self._last_llm_call_ts if self._last_llm_call_ts else float("inf")
+                send_to_llm = elapsed >= llm_call_interval
+                if send_to_llm:
+                    self._last_llm_call_ts = now
+            llm_prob, llm_sampled, llm_rate_allowed = 1.0, True, send_to_llm
             queued = False
             if send_to_llm:
                 self._llm_in.put(
@@ -399,6 +289,7 @@ class FrameSequencePipeline:
                         "frame_id": frame_id,
                         "processed_bytes": processed_bytes,
                         "detections": detections,
+                        "llm_provider": self.llm_provider,
                     }
                 )
                 with self._llm_pending_lock:
@@ -417,8 +308,6 @@ class FrameSequencePipeline:
                     "probability": round(llm_prob, 4),
                     "sampled": llm_sampled,
                     "rate_allowed": llm_rate_allowed,
-                    "similarity_to_prev": round(float(similarity_to_prev), 4) if similarity_to_prev is not None else None,
-                    "similarity_blocked": similarity_blocked,
                     "description": None,
                     "error": None,
                 },
@@ -433,6 +322,7 @@ class FrameSequencePipeline:
                     "yolo_pid": os.getpid(),
                     "llm_pid": self._llm_process.pid if self._llm_process is not None else os.getpid(),
                     "llm_worker_mode": self.llm_worker_mode,
+                    "llm_provider": self.llm_provider,
                 },
             }
             self._results_by_id[frame_id] = result
@@ -489,7 +379,7 @@ class FrameSequencePipeline:
 def run_frame_sequence(
     frames: list[bytes],
     *,
-    context: str = "walking",
+    context: str = "general",
     use_depth: bool = True,
     preprocess_size: int = 256,
     imgsz: int = 256,
@@ -518,7 +408,7 @@ def run_frame_sequence(
 def run_image_pipeline(
     image_bytes: bytes,
     *,
-    context: str = "walking",
+    context: str = "general",
     use_depth: bool = True,
     preprocess_size: int = 256,
     imgsz: int = 256,

@@ -37,7 +37,7 @@ def main() -> int:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     pipeline = FrameSequencePipeline(
-        context="walking",
+        context="general",
         use_depth=True,
         return_annotated=True,
         llm_worker_mode="process",
@@ -65,21 +65,17 @@ def main() -> int:
                     "frame_id": frame_id,
                     "source_image": path.name,
                     "det_count": len(result["detections"]),
-                    "hazard_level": result["hazard"]["hazard_level"],
-                    "hazard_score": result["hazard"]["hazard_score"],
-                    "danger_active": result["danger"]["active"],
                     "llm_sent": result["llm"]["sent"],
-                    "sim_block": result["llm"]["similarity_blocked"],
                     "yolo_pid": result["runtime"]["yolo_pid"],
                     "llm_pid": result["runtime"]["llm_pid"],
                     "mode": result["runtime"]["llm_worker_mode"],
+                    "provider": result["runtime"].get("llm_provider"),
                 },
                 (
                     f"[YOLO] frame={frame_id} image={path.name} det={len(result['detections'])} "
-                    f"hazard={result['hazard']['hazard_level']}({result['hazard']['hazard_score']}) "
-                    f"danger_active={result['danger']['active']} llm_sent={result['llm']['sent']} "
-                    f"sim_block={result['llm']['similarity_blocked']} "
-                    f"yolo_pid={result['runtime']['yolo_pid']} llm_pid={result['runtime']['llm_pid']}"
+                    f"llm_sent={result['llm']['sent']} "
+                    f"yolo_pid={result['runtime']['yolo_pid']} llm_pid={result['runtime']['llm_pid']} "
+                    f"provider={result['runtime'].get('llm_provider')}"
                 ),
             )
 

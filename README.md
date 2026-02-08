@@ -11,6 +11,10 @@
   - `self._llm_out`: LLM output queue (LLM pushes results back after completion).
 - Real-time terminal output:
   - `inference.py` / `gradio_app.py` print YOLO results, LLM results (when content exists), and queue status in real time.
+- Local video debugging:
+  - Place files under `test/test_videos/` and run either:
+    - Gradio `Video File (Debug)` tab, or
+    - `python test/video_assist_demo.py`
 - Log recording:
   - `logs/pipeline_events.jsonl` (batch inference)
   - `logs/webcam_events.jsonl` (real-time webcam)
@@ -21,8 +25,8 @@
 - Input: single-frame image bytes (internally resized, then sent to detection).
 - Output (core):
   - `detections`: object list (`class_name`, `confidence`, `xyxy`)
-  - `hazard`: hazard score and level (`hazard_score`, `hazard_level`)
-  - `danger`: danger state machine status (whether danger is entered/exited)
+  - `latency`: per-frame runtime metrics (`yolo_ms`, `llm_ms`, `total_ms`)
+  - `runtime`: execution metadata (`yolo_pid`, `llm_pid`, `llm_provider`)
 
 ## 3. LLM input / output
 
@@ -30,24 +34,15 @@
   - frame image bytes
   - YOLO detections for that frame (classes, boxes, confidences)
 - Output:
-  - First does a binary decision: `dangerous = yes/no`
-  - If `yes`: returns one short warning sentence
-  - If `no`: returns empty text
+  - Returns one SHORT, actionable navigation sentence
+  - Focuses on direction, distance, and suggested action
+  - Example style: “Person approaching on your left.”
 
 ## 4. When YOLO sends frames to LLM
 
-A YOLO frame is sent to LLM only if all of the following are satisfied:
-
-1. Not blocked by "similar frame suppression"
-- If similarity with the previous frame's YOLO result is too high (default threshold `0.9`), it is not sent.
-
-2. Probabilistic gate is hit
-- `x = yolo_score * constant * probability_scale`
-- `smooth(x) = x / (x + tau)`  (for `x >= 0`)
-- `P = bias + (1-bias) * smooth(x)`
-- It must pass random sampling before continuing.
-
-3. Rate limit check passes
-- Must satisfy both `min_interval_ms` and `max_calls_per_second` constraints.
+A YOLO frame is sent to LLM when fixed interval gating allows it:
+- `llm_call_interval_sec` defines the minimum time gap between two LLM calls.
+- If enough time has elapsed since the last LLM call, current frame is sent.
+- Otherwise, current frame is skipped for LLM.
 
 Configuration is in `config/runtime_config.yaml`.

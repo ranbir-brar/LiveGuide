@@ -2,15 +2,21 @@
 pipeline:
   # Expected YOLO processing frequency (frames per second).
   yolo_target_fps: 6.0
-  # Enter danger state immediately when hazard_score >= this threshold.
-  danger_threshold: 0.85
 
 # LLM model and gating policy.
 llm:
+  # VLM backend provider: qwen_local | gemini_api
+  provider: "qwen_local"
+
   # Hugging Face model ID used for first-time download.
   model_id: "Qwen/Qwen3-VL-2B-Instruct"
   # Local model directory (relative to project root).
   local_model_dir: "models/llm/weights/Qwen3-VL-2B-Instruct"
+
+  # Gemini API settings (used when provider=gemini_api)
+  gemini_model: "gemini-2.0-flash"
+  gemini_api_key: ""
+  gemini_api_key_env: "GEMINI_API_KEY"
 
   # Max generated tokens per LLM response.
   max_new_tokens: 80
@@ -19,28 +25,5 @@ llm:
   # Nucleus sampling top-p value.
   top_p: 0.9
 
-  # Probability formula constant: x = yolo_score * this * probability_scale.
-  calls_per_second_constant: 0.8
-  # Hard upper bound on LLM calls per second.
-  max_calls_per_second: 1.5
-  # Minimum interval between LLM calls in milliseconds.
-  min_interval_ms: 300
-  # Extra multiplier on YOLO score before clamp.
-  probability_scale: 1.0
-  # Smooth saturation factor for positive-input probability mapping:
-  # smooth(x) = x / (x + tau). Smaller tau => more aggressive probability growth.
-  probability_smoothing_tau: 0.35
-  # Bias outside scale: final_p = bias + (1-bias) * scaled_part.
-  base_probability_bias: 0.1
-
-  # Whether to block LLM calls for highly similar consecutive YOLO results.
-  similarity_block_enabled: true
-  # Similarity threshold in [0,1], above which LLM call is blocked.
-  similarity_threshold: 0.7
-
-  # Random seed for deterministic LLM gating sampling.
-  rng_seed: 33054825
-
-  # Always-call mode: bypass hazard scoring, call VLM at fixed intervals
-  always_call_mode: true
-  always_call_interval_sec: 2.5
+  # Fixed VLM call interval in seconds.
+  llm_call_interval_sec: 2.5
