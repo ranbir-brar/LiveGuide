@@ -1,0 +1,63 @@
+# Pipeline-level scheduling and safety state.
+pipeline:
+  # Expected YOLO processing frequency (frames per second).
+  yolo_target_fps: 6.0
+
+# LLM model and gating policy.
+llm:
+  # VLM backend provider: qwen_local | gemini_api
+  provider: "gemini_api"
+
+  # Hugging Face model ID used for first-time download.
+  model_id: "Qwen/Qwen3-VL-2B-Instruct"
+  # Local model directory (relative to project root).
+  local_model_dir: "models/llm/weights/Qwen3-VL-2B-Instruct"
+
+  # Gemini API settings (used when provider=gemini_api)
+  gemini_model: "gemini-2.0-flash"
+  gemini_api_key: ""
+  gemini_api_key_env: "GEMINI_API_KEY"
+
+  # Max generated tokens per LLM response.
+  max_new_tokens: 80
+  # Sampling temperature for generation.
+  temperature: 0.2
+  # Nucleus sampling top-p value.
+  top_p: 0.9
+
+  # Fixed VLM call interval in seconds.
+  llm_call_interval_sec: 2.5
+
+  # Skip VLM call when current YOLO detections are too similar to previous frame.
+  similarity_threshold: 0.85
+  # Ignore weak detections when computing similarity.
+  similarity_min_confidence: 0.25
+
+# Text-to-speech configuration.
+tts:
+  provider: "elevenlabs"
+  elevenlabs_api_key: ""
+  elevenlabs_api_key_env: "ELEVENLABS_API_KEY"
+  voice_id: "EXAVITQu4vr4xnSDxMaL"
+  model_id: "eleven_multilingual_v2"
+  # Use PCM for optional local playback; if playback is disabled, any format is fine.
+  output_format: "pcm_22050"
+  request_timeout_sec: 30
+  enable_playback: false
+
+# Gradio app runtime controls for multi-user isolation and concurrency.
+gradio:
+  # Use thread workers so sessions do not spawn one LLM process each.
+  llm_worker_mode: "thread"
+  # Default frontend detection sensitivity (1.0 low -> 10.0 high).
+  detection_sensitivity: 5.0
+  # Keep only recent frames per session to bound memory.
+  result_buffer_size: 300
+  # Reclaim inactive sessions and their pipelines.
+  session_idle_timeout_sec: 900
+  session_cleanup_interval_sec: 30
+  # Hard cap on live sessions kept in memory (LRU eviction).
+  max_sessions: 32
+  queue:
+    default_concurrency_limit: 2
+    max_size: 32
