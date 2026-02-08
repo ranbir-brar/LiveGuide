@@ -5,12 +5,14 @@
 
 import base64
 import json
+import sys
 from io import BytesIO
 from pathlib import Path
 
 from PIL import Image
 
-from main_interface import run_frame_sequence
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from main import run_frame_sequence
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 OUTPUT_SIZE = 256
@@ -28,8 +30,8 @@ def standardize_output_image(img_bytes: bytes, size: int = OUTPUT_SIZE) -> bytes
 
 def main() -> int:
     here = Path(__file__).resolve().parent
-    test_images_dir = here / "data" / "test_images"
-    output_dir = here / "annotated-images"
+    test_images_dir = here / "test_images"
+    output_dir = here.parent / "annotated-images"
     output_dir.mkdir(exist_ok=True)
 
     context = "walking"

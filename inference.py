@@ -9,12 +9,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from main_interface import FrameSequencePipeline
+from main import FrameSequencePipeline
 
 
 def main() -> int:
     here = Path(__file__).resolve().parent
-    test_dir = here / "data" / "test_images"
+    test_dir = here / "test" / "test_images"
     logs_dir = here / "logs"
     logs_dir.mkdir(exist_ok=True)
     event_log = logs_dir / "pipeline_events.jsonl"

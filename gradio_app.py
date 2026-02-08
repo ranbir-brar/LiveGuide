@@ -9,7 +9,7 @@ from typing import Any
 import gradio as gr
 from PIL import Image
 
-from main_interface import FrameSequencePipeline
+from main import FrameSequencePipeline
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
