@@ -11,6 +11,8 @@ import cv2
 import gradio as gr
 from PIL import Image
 
+import os
+
 from main import FrameSequencePipeline, load_runtime_config
 from models.tts import speak
 
@@ -91,7 +93,10 @@ def _format_yolo_panel(result: dict[str, Any]) -> str:
     )
 
 
-def process_stream(frame: Any, state: dict[str, Any], llm_provider: str) -> tuple[str, str, dict[str, Any]]:
+def process_stream(frame: Any, state: dict[str, Any], llm_provider: str, api_key: str = "") -> tuple[str, str, dict[str, Any]]:
+    if api_key:
+        os.environ["GEMINI_API_KEY"] = api_key.strip()
+
     if frame is None:
         return "No frame", "", state
 
@@ -170,8 +175,10 @@ def process_stream(frame: Any, state: dict[str, Any], llm_provider: str) -> tupl
 
 
 def process_video_file(
-    video_path: str, fps: float, state: dict[str, Any], llm_provider: str
+    video_path: str, fps: float, state: dict[str, Any], llm_provider: str, api_key: str = ""
 ) -> Generator[tuple[Any, str, str, str, dict[str, Any]], None, None]:
+    if api_key:
+        os.environ["GEMINI_API_KEY"] = api_key.strip()
     """
     Process a video file frame by frame at the specified FPS.
     Yields (current_frame, progress_text, yolo_panel, llm_text, state) for each frame.
@@ -227,6 +234,10 @@ def process_video_file(
                         err = (llm.get("error") or "").strip()
                         if desc:
                             latest_llm_text = f"frame={fid}: {desc}"
+                            try:
+                                speak(desc, blocking=False)
+                            except Exception:
+                                pass
                         if desc or err:
                             _emit_log(
                                 "llm_video",
@@ -279,13 +290,21 @@ def process_video_file(
 with gr.Blocks(title="LiveGuide Scene Assistant") as demo:
     gr.Markdown("## LiveGuide Scene Assistant")
     gr.Markdown("Real-time scene descriptions for visual assistance. Objects detected by YOLO, scene narrated by VLM.")
-    default_provider = str(load_runtime_config().get("llm", {}).get("provider", "qwen_local"))
-    llm_provider = gr.Dropdown(
-        choices=["qwen_local", "gemini_api"],
-        value=default_provider if default_provider in {"qwen_local", "gemini_api"} else "qwen_local",
-        label="VLM Model",
-        info="Switch live between local Qwen and Gemini API",
-    )
+    default_provider = str(load_runtime_config().get("llm", {}).get("provider", "gemini_api"))
+    with gr.Row():
+        llm_provider = gr.Dropdown(
+            choices=["qwen_local", "gemini_api"],
+            value=default_provider if default_provider in {"qwen_local", "gemini_api"} else "gemini_api",
+            label="VLM Model",
+            info="Switch live between local Qwen and Gemini API",
+            scale=1
+        )
+        api_key_input = gr.Textbox(
+            label="Gemini API Key",
+            type="password",
+            placeholder="Required for Gemini",
+            scale=2
+        )
 
     with gr.Tabs():
         # Tab 1: Webcam (original functionality)
@@ -297,7 +316,7 @@ with gr.Blocks(title="LiveGuide Scene Assistant") as demo:
 
             cam.stream(
                 fn=process_stream,
-                inputs=[cam, webcam_state, llm_provider],
+                inputs=[cam, webcam_state, llm_provider, api_key_input],
                 outputs=[webcam_yolo_html, webcam_llm_text, webcam_state],
                 show_progress="hidden",
             )
@@ -341,7 +360,7 @@ with gr.Blocks(title="LiveGuide Scene Assistant") as demo:
 
             process_btn.click(
                 fn=process_video_file,
-                inputs=[video_input, video_fps, video_state, llm_provider],
+                inputs=[video_input, video_fps, video_state, llm_provider, api_key_input],
                 outputs=[video_frame_display, video_progress, video_yolo_html, video_llm_text, video_state],
             )
 
@@ -349,4 +368,5 @@ with gr.Blocks(title="LiveGuide Scene Assistant") as demo:
 if __name__ == "__main__":
     # server_name="0.0.0.0" allows access from other devices on same network
     # Access from phone using your PC's IP, e.g., http://192.168.1.x:7860
-    demo.launch(server_name="0.0.0.0", share=True)
+    # demo.launch(server_name="0.0.0.0", share=True)
+    demo.launch(server_name="127.0.0.1", share=False)

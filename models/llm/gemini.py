@@ -6,7 +6,7 @@ import os
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 
@@ -107,7 +107,7 @@ def _extract_text_from_response(resp_obj: dict[str, Any]) -> str:
     return "\n".join(parts).strip()
 
 
-def _call_gemini(*, text_prompt: str, image_bytes: bytes | None, max_new_tokens: int) -> str:
+def _call_gemini(*, text_prompt: str, image_bytes: Optional[bytes], max_new_tokens: int) -> str:
     llm_cfg = _load_runtime_config().get("llm", {})
     model = str(llm_cfg.get("gemini_model", "gemini-2.0-flash"))
     api_key_env = str(llm_cfg.get("gemini_api_key_env", "GEMINI_API_KEY"))

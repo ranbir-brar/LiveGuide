@@ -6,7 +6,7 @@ pipeline:
 # LLM model and gating policy.
 llm:
   # VLM backend provider: qwen_local | gemini_api
-  provider: "qwen_local"
+  provider: "gemini_api"
 
   # Hugging Face model ID used for first-time download.
   model_id: "Qwen/Qwen3-VL-2B-Instruct"
