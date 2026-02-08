@@ -19,7 +19,7 @@ llm:
   # Nucleus sampling top-p value.
   top_p: 0.9
 
-  # Probability formula constant: scaled_part = clamp01(yolo_score * this * probability_scale).
+  # Probability formula constant: x = yolo_score * this * probability_scale.
   calls_per_second_constant: 0.8
   # Hard upper bound on LLM calls per second.
   max_calls_per_second: 1.5
@@ -27,6 +27,9 @@ llm:
   min_interval_ms: 300
   # Extra multiplier on YOLO score before clamp.
   probability_scale: 1.0
+  # Smooth saturation factor for positive-input probability mapping:
+  # smooth(x) = x / (x + tau). Smaller tau => more aggressive probability growth.
+  probability_smoothing_tau: 0.35
   # Bias outside scale: final_p = bias + (1-bias) * scaled_part.
   base_probability_bias: 0.1
 

@@ -11,14 +11,18 @@ import cv2
 import gradio as gr
 from PIL import Image
 
+import time
+import tempfile
 from main import FrameSequencePipeline
+from models.tts import speak, synthesize
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 EVENT_LOG = LOG_DIR / "webcam_events.jsonl"
 
 _PIPELINE_LOCK = threading.Lock()
-_PIPELINE: FrameSequencePipeline | None = None
+_PIPELINE: "FrameSequencePipeline | None" = None
+_LAST_SPOKEN_ALERT: str = ""  # Track last spoken alert to avoid repeats
 
 
 def get_pipeline() -> FrameSequencePipeline:
@@ -114,6 +118,13 @@ def process_stream(frame: Any, state: dict[str, Any]) -> tuple[str, str, dict[st
                 err = (llm.get("error") or "").strip()
                 if desc:
                     latest_llm_text = f"frame={fid}: {desc}"
+                    # Speak LLM description aloud
+                    try:
+                        print(f"[TTS] Speaking LLM: {desc[:30]}...")
+                        speak(desc, blocking=False)
+                    except Exception as e:
+                        print(f"[TTS] Error: {e}")
+                        pass
                 if desc or err:
                     _emit_log(
                         "llm",
@@ -137,11 +148,7 @@ def process_stream(frame: Any, state: dict[str, Any]) -> tuple[str, str, dict[st
             {
                 "frame_id": fid,
                 "det_count": len(result.get("detections", [])),
-                "hazard_level": result.get("hazard", {}).get("hazard_level"),
-                "hazard_score": result.get("hazard", {}).get("hazard_score"),
-                "danger_active": result.get("danger", {}).get("active"),
                 "llm_sent": result.get("llm", {}).get("sent"),
-                "similarity_blocked": result.get("llm", {}).get("similarity_blocked"),
             },
         )
 
@@ -154,6 +161,7 @@ def process_stream(frame: Any, state: dict[str, Any]) -> tuple[str, str, dict[st
         )
 
         yolo_panel = _format_yolo_panel(result)
+        
         new_state = {
             "seen_llm_ids": sorted(seen_ids),
             "latest_llm_text": latest_llm_text,

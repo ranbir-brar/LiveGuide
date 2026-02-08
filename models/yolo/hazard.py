@@ -10,7 +10,7 @@ Configuration is loaded from config/hazard_config.json
 import json
 import re
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 # Load configuration from JSON file
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "hazard_config.json"
@@ -71,7 +71,7 @@ def _match_keyword(label: str, keyword: str) -> bool:
     return re.search(rf"\b{re.escape(keyword)}\b", label) is not None
 
 
-def _classify_by_keywords(class_name: str, context: str, config: dict[str, Any]) -> str | None:
+def _classify_by_keywords(class_name: str, context: str, config: dict[str, Any]) -> Optional[str]:
     """Fallback classification for larger vocab models (e.g., OpenImages 600 classes)."""
     auto_cfg = config.get("auto_classification", {})
     if not auto_cfg.get("enabled", False):
@@ -90,8 +90,8 @@ def _classify_by_keywords(class_name: str, context: str, config: dict[str, Any])
 def classify_hazard(
     detections: list[dict[str, Any]],
     context: Literal["walking", "driving"] = "walking",
-    confidence_threshold: float | None = None,
-    min_box_height: int | None = None,
+    confidence_threshold: Optional[float] = None,
+    min_box_height: Optional[int] = None,
 ) -> dict[str, Any]:
     """
     Analyze detections and return hazard classification.

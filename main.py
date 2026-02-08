@@ -91,6 +91,17 @@ def _clamp01(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
 
 
+def _smooth_positive_to_unit(x: float, tau: float = 0.35) -> float:
+    """
+    Smoothly map x>=0 to [0,1):
+      f(x) = x / (x + tau), tau>0
+    Compared to hard clamp, this avoids sharp saturation and keeps continuity.
+    """
+    x = max(0.0, float(x))
+    tau = max(1e-6, float(tau))
+    return x / (x + tau)
+
+
 def preprocess_image(img_bytes: bytes, target_size: int = 256) -> bytes:
     img = Image.open(BytesIO(img_bytes)).convert("RGB")
     resized = img.resize((target_size, target_size), Image.Resampling.BILINEAR)
@@ -237,12 +248,14 @@ class FrameSequencePipeline:
     def llm_send_probability(self, yolo_score: float) -> float:
         """
         Bias outside scale:
-        P = bias + (1 - bias) * scale01((yolo_score * constant) * probability_scale)
+        P = bias + (1 - bias) * smooth(yolo_score * constant * probability_scale)
         """
         constant = float(self.llm_cfg.get("calls_per_second_constant", 0.8))
         score_scale = float(self.llm_cfg.get("probability_scale", 1.0))
         bias = _clamp01(float(self.llm_cfg.get("base_probability_bias", 0.1)))
-        scaled_part = _clamp01(float(yolo_score) * constant * score_scale)
+        tau = float(self.llm_cfg.get("probability_smoothing_tau", 0.35))
+        scaled_input = float(yolo_score) * constant * score_scale
+        scaled_part = _smooth_positive_to_unit(scaled_input, tau=tau)
         return bias + (1.0 - bias) * scaled_part
 
     def _rate_allowed(self) -> bool:

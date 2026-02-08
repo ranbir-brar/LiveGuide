@@ -5,7 +5,7 @@ import time
 import urllib.request
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 from PIL import Image
@@ -50,7 +50,7 @@ def _download_file(url: str, dst: Path, *, timeout: float = 60.0) -> None:
             pass
 
 
-def _resolve_weights_path(weights_path: str | None) -> Path:
+def _resolve_weights_path(weights_path: Optional[str]) -> Path:
     raw = (weights_path or "").strip()
     if not raw:
         p = DEFAULT_WEIGHTS
@@ -81,7 +81,7 @@ def _resolve_weights_path(weights_path: str | None) -> Path:
     return p
 
 
-def _get_model(weights_path: str | None) -> YOLO:
+def _get_model(weights_path: Optional[str]) -> YOLO:
     p = _resolve_weights_path(weights_path)
     key = str(p)
     with _MODEL_CACHE_LOCK:
@@ -95,7 +95,7 @@ def _get_model(weights_path: str | None) -> YOLO:
 def detect_pil(
     image: Image.Image,
     *,
-    weights_path: str | None = None,
+    weights_path: Optional[str] = None,
     conf: float = 0.25,
     iou: float = 0.7,
     imgsz: int = 640,
@@ -132,7 +132,7 @@ def detect_pil(
         )
         names = r0.names if hasattr(r0, "names") else getattr(model, "names", {})
 
-        for (x1, y1, x2, y2), c, k in zip(xyxy, confs, clss, strict=False):
+        for (x1, y1, x2, y2), c, k in zip(xyxy, confs, clss):
             detections.append(
                 {
                     "class_id": int(k),
@@ -174,7 +174,7 @@ def detect_pil(
 def detect_image_bytes(
     image_bytes: bytes,
     *,
-    weights_path: str | None = None,
+    weights_path: Optional[str] = None,
     conf: float = 0.25,
     iou: float = 0.7,
     imgsz: int = 640,
